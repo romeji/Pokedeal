@@ -16,6 +16,8 @@
     "db:down": "docker compose down",
     "worker:catalog-import": "tsx workers/cardmarket/import.ts catalog",
     "worker:price-import": "tsx workers/cardmarket/import.ts prices",
+    "cardmarket:sync": "tsx workers/cardmarket/sync.ts",
+    "cardmarket:sync:continuous": "tsx workers/cardmarket/sync.ts --continuous",
     "worker:price-check": "tsx workers/pricing/price-check.ts",
     "worker:listing-collector": "tsx workers/marketplace/listing-collector.ts",
     "worker:listing-analyzer": "tsx workers/ai/listing-analyzer.ts",

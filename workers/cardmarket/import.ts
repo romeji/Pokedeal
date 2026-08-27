@@ -38,7 +38,9 @@ async function main() {
       new CardmarketPriceImporter(priceGuidePath).run()
     );
     console.log(
-      `Price guide importé : ${result.snapshotsCreated} snapshots créés, ${result.skippedUnknownProduct} ignorés (produit inconnu du catalogue local — importer le catalogue d'abord).`
+      result.alreadyImported
+        ? `Price guide déjà importé (${result.sourceCreatedAt}) — aucun doublon créé.`
+        : `Price guide importé : ${result.snapshotsCreated} snapshots créés, ${result.skippedUnknownProduct} ignorés (produit inconnu du catalogue local — importer le catalogue d'abord).`
     );
     return;
   }

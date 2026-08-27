@@ -7,3 +7,4 @@ function Start-ManagedProcess([string]$name,[string]$command,[string]$logFile){
 }
 Start-ManagedProcess "dev" "npm run dev" ".pokedeal-dev.log"
 Start-ManagedProcess "processor" "npm run pipeline:continuous" ".pokedeal-processor.log"
+Start-ManagedProcess "cardmarket" "npm run cardmarket:sync:continuous" ".pokedeal-cardmarket.log"

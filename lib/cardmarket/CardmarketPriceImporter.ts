@@ -55,11 +55,20 @@ interface RawPriceGuideEntry {
 export class CardmarketPriceImporter {
   constructor(private readonly priceGuideFilePath: string) {}
 
-  async run(): Promise<{ snapshotsCreated: number; skippedUnknownProduct: number }> {
+  async run(): Promise<{
+    snapshotsCreated: number;
+    skippedUnknownProduct: number;
+    sourceCreatedAt: string;
+    alreadyImported: boolean;
+  }> {
     await assertProviderApproved("cardmarket");
 
     const raw = await readFile(this.priceGuideFilePath, "utf-8");
     const file = JSON.parse(raw) as RawPriceGuideFile;
+    const sourceCreatedAt = new Date(file.createdAt);
+    if (Number.isNaN(sourceCreatedAt.getTime())) {
+      throw new Error(`Date Cardmarket invalide : ${file.createdAt}`);
+    }
 
     const source = await prisma.priceSource.upsert({
       where: { name: "cardmarket" },
@@ -67,6 +76,9 @@ export class CardmarketPriceImporter {
       create: { name: "cardmarket", isPrimary: true },
     });
 
+    // Tous les produits d'un même fichier portent la date de publication du
+    // fichier. Cela rend l'import quotidien réellement idempotent, y compris
+    // après un redémarrage ou une perte du manifeste local de téléchargement.
     const cardmarketProductIds = file.priceGuides.map((p) => p.idProduct);
     const knownProducts = await prisma.cardmarketProduct.findMany({
       where: { cardmarketProductId: { in: cardmarketProductIds } },
@@ -75,6 +87,25 @@ export class CardmarketPriceImporter {
     const productIdByCardmarketId = new Map(
       knownProducts.map((p) => [p.cardmarketProductId, p.id])
     );
+
+    const existingCount = await prisma.priceSnapshot.count({
+      where: { sourceId: source.id, retrievedAt: sourceCreatedAt },
+    });
+    if (existingCount === knownProducts.length && existingCount > 0) {
+      return {
+        snapshotsCreated: 0,
+        skippedUnknownProduct: file.priceGuides.length - knownProducts.length,
+        sourceCreatedAt: sourceCreatedAt.toISOString(),
+        alreadyImported: true,
+      };
+    }
+    // Une interruption peut laisser quelques lots de la journée déjà écrits.
+    // Ils sont supprimés puis recréés pour garantir une journée complète.
+    if (existingCount > 0) {
+      await prisma.priceSnapshot.deleteMany({
+        where: { sourceId: source.id, retrievedAt: sourceCreatedAt },
+      });
+    }
 
     let snapshotsCreated = 0;
     let skippedUnknownProduct = 0;
@@ -109,6 +140,7 @@ export class CardmarketPriceImporter {
               avg1PriceHolo: entry["avg1-holo"],
               avg7PriceHolo: entry["avg7-holo"],
               avg30PriceHolo: entry["avg30-holo"],
+              retrievedAt: sourceCreatedAt,
             },
           })
         );
@@ -119,6 +151,11 @@ export class CardmarketPriceImporter {
       }
     }
 
-    return { snapshotsCreated, skippedUnknownProduct };
+    return {
+      snapshotsCreated,
+      skippedUnknownProduct,
+      sourceCreatedAt: sourceCreatedAt.toISOString(),
+      alreadyImported: false,
+    };
   }
 }

@@ -37,6 +37,16 @@ recherche web avant d'écrire le moindre importeur.
 ➡️ C'est la source à utiliser pour `CardmarketCatalogImporter` /
 `CardmarketPriceImporter`.
 
+Liens Pokémon actuellement publiés et vérifiés le 27.08.2026 :
+
+- `https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_6.json`
+- `https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_6.json`
+- `https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json`
+
+`CardmarketAutomaticSync` n'accepte que HTTPS et l'hôte exact
+`downloads.s3.cardmarket.com`, valide la structure JSON avant remplacement du
+fichier local et emploie la date `createdAt` comme date des snapshots.
+
 ## 3. Statut retenu — usage personnel autorisé par Jack
 
 Jack a autorisé d'avance l'usage en zone grise **pour un usage strictement

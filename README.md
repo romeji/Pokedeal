@@ -90,6 +90,29 @@ npm run dev                   # http://localhost:3000/dashboard
 
 ## Importer les données Cardmarket (Phase 2)
 
+### Synchronisation automatique recommandée
+
+PokéDeal utilise les trois fichiers JSON officiels publiés par Cardmarket pour
+Pokémon (catalogue cartes, catalogue produits non-unitaires et guide de prix).
+Aucune clé API Cardmarket n'est nécessaire :
+
+```bash
+npm run cardmarket:sync
+```
+
+Le lanceur Windows démarre automatiquement
+`npm run cardmarket:sync:continuous`. Le worker vérifie les fichiers toutes les
+6 heures (réglable avec `CARDMARKET_SYNC_INTERVAL_HOURS`), respecte les en-têtes
+HTTP `ETag`/`Last-Modified`, importe le catalogue avant les prix et déduplique
+les snapshots avec la date de publication Cardmarket. Les fichiers locaux sont
+conservés dans `data/cardmarket/`, dossier ignoré par Git.
+
+Les tâches de fond permanentes ne tournent pas dans une fonction Vercel : ce
+worker s'exécute sur le PC via le lanceur et écrit dans la base indiquée par
+`DATABASE_URL`.
+
+### Import manuel de secours
+
 Place les fichiers téléchargés depuis les pages `/Data/*` du jeu Pokémon
 dans un dossier local `./data` (ignoré par git, voir `.gitignore`) :
 

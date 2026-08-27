@@ -4,4 +4,4 @@ function Stop-Tree([int]$processId){
   foreach($child in $children){Stop-Tree ([int]$child.ProcessId)}
   Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
 }
-foreach($name in @("dev","processor")){$pidPath=Join-Path $projectRoot ".pokedeal-$name.pid";if(Test-Path -LiteralPath $pidPath){$managedId=[int](Get-Content -LiteralPath $pidPath -ErrorAction SilentlyContinue);if($managedId){Stop-Tree $managedId};Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue}}
+foreach($name in @("dev","processor","cardmarket")){$pidPath=Join-Path $projectRoot ".pokedeal-$name.pid";if(Test-Path -LiteralPath $pidPath){$managedId=[int](Get-Content -LiteralPath $pidPath -ErrorAction SilentlyContinue);if($managedId){Stop-Tree $managedId};Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue}}
