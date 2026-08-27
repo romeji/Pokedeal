@@ -47,5 +47,30 @@ $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="V�
   );$ok=$true;for($i=0;$i -lt $steps.Count;$i++){if(!(Invoke-Check $i $steps[$i])){$ok=$false;break}}
   if($ok){$status.Text="Tout est valide. PokéDeal peut démarrer.";$start.Enabled=$true;$start.BackColor=[Drawing.Color]::FromArgb(59,130,246);$start.ForeColor=[Drawing.Color]::White}else{$verify.Enabled=$true}
 })
-$start.Add_Click({Start-Process -FilePath "cmd.exe" -ArgumentList "/c","npm run dev > .pokedeal-dev.log 2>&1" -WorkingDirectory $projectRoot -WindowStyle Hidden;$status.Text="Démarrage… le navigateur va s'ouvrir.";$timer=New-Object Windows.Forms.Timer;$timer.Interval=4000;$timer.Add_Tick({$timer.Stop();Start-Process "http://localhost:3000/dashboard"});$timer.Start()})
+$start.Add_Click({
+  $start.Enabled=$false
+  Start-Process -FilePath "cmd.exe" -ArgumentList "/c","npm run dev > .pokedeal-dev.log 2>&1" -WorkingDirectory $projectRoot -WindowStyle Hidden
+  $status.Text="Démarrage… attente du serveur local."
+  $script:launchAttempts=0
+  $script:launchTimer=New-Object Windows.Forms.Timer
+  $script:launchTimer.Interval=1500
+  $script:launchTimer.Add_Tick({
+    $script:launchAttempts++
+    try {
+      $response=Invoke-WebRequest -Uri "http://localhost:3000/dashboard" -UseBasicParsing -TimeoutSec 2
+      if($response.StatusCode -eq 200){
+        $script:launchTimer.Stop();$script:launchTimer.Dispose();$script:launchTimer=$null
+        $status.Text="Pokedeal est démarré."
+        Start-Process "http://localhost:3000/dashboard"
+      }
+    } catch {
+      if($script:launchAttempts -ge 40){
+        $script:launchTimer.Stop();$script:launchTimer.Dispose();$script:launchTimer=$null
+        $status.Text="Le serveur n'a pas répondu. Consulte .pokedeal-dev.log."
+        $start.Enabled=$true
+      }
+    }
+  })
+  $script:launchTimer.Start()
+})
 [void]$form.ShowDialog()
