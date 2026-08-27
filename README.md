@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Pokémon Deal Scanner
 
 Surveillance des annonces Pokémon sur Vinted, identification par vision, comparaison
@@ -170,3 +171,6 @@ lib/
 workers/        jobs listés section 22 (à implémenter phase par phase)
 prisma/         schema.prisma + seed
 ```
+=======
+# Pokedeal
+>>>>>>> 73cecd38357a3831f752ddc22ed877f8a98b3fce
