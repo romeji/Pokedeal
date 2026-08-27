@@ -42,15 +42,30 @@ stockage ou réduire la fréquence/granularité des snapshots.
 2. Sélectionner le plan voulu et une région européenne, puis connecter la base
    au projet pour Production, Preview et Development selon le besoin.
 3. Vérifier que Vercel a créé une variable `DATABASE_URL` poolée.
-4. Depuis le PC, récupérer la même URL dans `.env` (ne jamais la commiter).
-5. Appliquer le schéma et initialiser les données :
+4. Depuis le PC, enregistrer les URL poolée et directe dans
+   `.env.neon.local` (ce fichier est ignoré par Git) :
+
+```env
+DATABASE_URL="postgresql://...-pooler..."
+DATABASE_URL_UNPOOLED="postgresql://..."
+```
+
+5. Appliquer le schéma avec l'URL directe, puis transférer la base locale et
+   basculer les workers vers l'URL poolée :
 
 ```powershell
+$env:DATABASE_URL = ((Get-Content .env.neon.local | Where-Object { $_ -match '^DATABASE_URL_UNPOOLED=' }) -split '=', 2)[1].Trim('"')
 npx prisma migrate deploy
+Remove-Item Env:DATABASE_URL
+npm run db:migrate-to-cloud
+npm run db:use-cloud
 npm run prisma:seed
-npm run cardmarket:sync
 npm run db:check
 ```
+
+La migration par lots utilise les identifiants comme clés de déduplication :
+elle peut être relancée après une interruption. Arrêter les workers locaux
+pendant le transfert afin que les relations annonce/image restent cohérentes.
 
 6. Redéployer Vercel. `/admin/system` doit afficher **Cloud partagée** et
    `/api/health/database` doit répondre avec `"ok": true`.
