@@ -7,7 +7,7 @@ import type { VisionProvider, VisionAnalysisResult, IdentifiedItem } from "../ty
  * (https://ai.google.dev/gemini-api/docs/structured-output) :
  *   POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
  * avec `generationConfig.responseMimeType: "application/json"` et un
- * `responseSchema` pour forcer une sortie JSON structurée.
+ * `responseJsonSchema` pour forcer une sortie JSON structurée.
  *
  * Le modèle reste surchargeable par GEMINI_MODEL. Le défaut est une version
  * Flash-Lite stable, multimodale et disponible sur le free tier au moment de
@@ -40,30 +40,19 @@ export class GeminiVisionProvider implements VisionProvider {
     const prompt = this.buildPrompt(context);
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": this.apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }, ...imageParts],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseJsonSchema: RESPONSE_SCHEMA,
+    const requestBody = JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }, ...imageParts],
         },
-      }),
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseJsonSchema: RESPONSE_SCHEMA,
+      },
     });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`Gemini a répondu ${res.status}: ${body.slice(0, 500)}`);
-    }
+    const res = await this.requestWithQuotaRetry(url, requestBody);
 
     const data = (await res.json()) as GeminiGenerateContentResponse;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -77,6 +66,31 @@ export class GeminiVisionProvider implements VisionProvider {
     }
 
     return { items: parsed.items ?? [] };
+  }
+
+  private async requestWithQuotaRetry(url: string, body: string): Promise<Response> {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await waitForGeminiSlot();
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey! },
+        body,
+      });
+      if (response.ok) return response;
+
+      const responseBody = await response.text().catch(() => "");
+      if (response.status !== 429 || attempt === 2) {
+        throw new Error(`Gemini a répondu ${response.status}: ${responseBody.slice(0, 500)}`);
+      }
+      const headerDelay = Number(response.headers.get("retry-after"));
+      const messageDelay = Number(responseBody.match(/retry in ([\d.]+)s/i)?.[1]);
+      const retryMs = Math.ceil(
+        (Number.isFinite(headerDelay) ? headerDelay * 1_000 :
+          Number.isFinite(messageDelay) ? messageDelay * 1_000 : 6_000) + 750,
+      );
+      await delay(retryMs);
+    }
+    throw new Error("Gemini indisponible après les nouvelles tentatives.");
   }
 
   private buildPrompt(context?: { title?: string; description?: string }): string {
@@ -100,6 +114,22 @@ export class GeminiVisionProvider implements VisionProvider {
     const buffer = Buffer.from(await res.arrayBuffer());
     return { inline_data: { mime_type: mimeType, data: buffer.toString("base64") } };
   }
+}
+
+const minimumRequestIntervalMs = Math.max(
+  4_000,
+  Number(process.env.GEMINI_MIN_REQUEST_INTERVAL_MS ?? 5_000) || 5_000,
+);
+let nextGeminiRequestAt = 0;
+
+async function waitForGeminiSlot() {
+  const waitMs = Math.max(0, nextGeminiRequestAt - Date.now());
+  if (waitMs) await delay(waitMs);
+  nextGeminiRequestAt = Date.now() + minimumRequestIntervalMs;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface GeminiGenerateContentResponse {
