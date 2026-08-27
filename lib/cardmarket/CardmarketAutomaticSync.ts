@@ -33,6 +33,7 @@ export interface CardmarketSyncResult {
   downloads: Record<CardmarketDownloadKey, { changed: boolean; createdAt: string; entries: number }>;
   catalog: { imported: number; setsCreated: number } | { skipped: true };
   prices: Awaited<ReturnType<CardmarketPriceImporter["run"]>>;
+  retention: { enabled: false } | { enabled: true; days: number; deleted: number };
 }
 
 export class CardmarketAutomaticSync {
@@ -62,6 +63,7 @@ export class CardmarketAutomaticSync {
       : ({ skipped: true } as const);
 
     const priceResult = await new CardmarketPriceImporter(prices.path).run();
+    const retention = await this.applyPriceRetention();
     await this.writeManifest(nextManifest);
 
     return {
@@ -72,7 +74,22 @@ export class CardmarketAutomaticSync {
       },
       catalog,
       prices: priceResult,
+      retention,
     };
+  }
+
+  private async applyPriceRetention(): Promise<CardmarketSyncResult["retention"]> {
+    const rawDays = process.env.CARDMARKET_PRICE_RETENTION_DAYS?.trim();
+    if (!rawDays) return { enabled: false };
+    const days = Number(rawDays);
+    if (!Number.isInteger(days) || days < 1 || days > 3650) {
+      throw new Error("CARDMARKET_PRICE_RETENTION_DAYS doit être un entier entre 1 et 3650");
+    }
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const result = await prisma.priceSnapshot.deleteMany({
+      where: { retrievedAt: { lt: cutoff } },
+    });
+    return { enabled: true, days, deleted: result.count };
   }
 
   private downloadSummary(result: DownloadResult) {

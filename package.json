@@ -14,6 +14,7 @@
     "db:up": "docker compose up -d db",
     "realtime:up": "docker compose up -d db vintrack-bridge",
     "db:down": "docker compose down",
+    "db:check": "tsx workers/database/check.ts",
     "worker:catalog-import": "tsx workers/cardmarket/import.ts catalog",
     "worker:price-import": "tsx workers/cardmarket/import.ts prices",
     "cardmarket:sync": "tsx workers/cardmarket/sync.ts",

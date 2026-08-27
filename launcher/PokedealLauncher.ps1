@@ -23,7 +23,7 @@ $subtitle.Text = "Toutes les vérifications doivent être validées avant le lan
 $subtitle.ForeColor = [Drawing.Color]::FromArgb(148,163,184)
 $subtitle.SetBounds(34,72,680,28); $form.Controls.Add($subtitle)
 
-$checks = @("Node.js et npm","Fichier .env","Docker Desktop","PostgreSQL","Migrations Prisma","Données de conformité","Tests automatiques","Qualité du code","Build de production")
+$checks = @("Node.js et npm","Fichier .env","Docker Desktop","PostgreSQL partagé","Migrations Prisma","Données de conformité","Tests automatiques","Qualité du code","Build de production")
 $labels = @()
 for($i=0;$i -lt $checks.Count;$i++){ $label=New-Object Windows.Forms.Label; $label.Text="○  $($checks[$i])"; $label.BackColor=[Drawing.Color]::FromArgb(18,29,43); $label.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $label.Padding=New-Object Windows.Forms.Padding(14,9,8,8); $label.SetBounds(34,(112+$i*46),675,37); $form.Controls.Add($label); $labels += $label }
 
@@ -39,7 +39,7 @@ $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="V�
     {node --version | Out-Null; npm --version | Out-Null},
     {& (Join-Path $PSScriptRoot 'EnsureRealtimeConfig.ps1')},
     {docker info | Out-Null},
-    {npm run realtime:up | Out-Null},
+    {npm run realtime:up | Out-Null; npm run db:check | Out-Null},
     {npx prisma migrate deploy | Out-Null},
     {npm run prisma:seed | Out-Null},
     {npm test | Out-Null},

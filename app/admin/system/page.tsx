@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/database/prisma";
+import { getDatabaseDeployment } from "@/lib/database/deployment";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export default async function AdminSystemPage() {
+  const databaseDeployment = getDatabaseDeployment();
   let compliance: Awaited<ReturnType<typeof prisma.providerComplianceReview.findMany>> = [];
   let recentRuns: Awaited<ReturnType<typeof prisma.workerRun.findMany>> = [];
   let listingCount = 0;
@@ -46,7 +48,13 @@ export default async function AdminSystemPage() {
         </div>
       )}
 
-      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="rounded-card border border-base-700 bg-base-900 p-4">
+          <div className={databaseDeployment === "CLOUD_SHARED" ? "text-market-profit" : "text-signal-good"}>
+            {databaseDeployment === "CLOUD_SHARED" ? "☁ Cloud partagée" : databaseDeployment === "LOCAL" ? "● Locale" : "○ Non configurée"}
+          </div>
+          <div className="text-xs text-slate-400">Base de données</div>
+        </div>
         <div className="rounded-card border border-base-700 bg-base-900 p-4">
           <div className="font-mono text-xl">{listingCount}</div>
           <div className="text-xs text-slate-400">Annonces collectées</div>

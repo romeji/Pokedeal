@@ -3,6 +3,9 @@
 Surveillance des annonces Pokémon sur Vinted, identification par vision, comparaison
 avec Cardmarket, calcul du profit/ROI, et alerte Discord automatique.
 
+La procédure pour partager les données entre les workers locaux, la PWA et
+Vercel est documentée dans [`docs/DATABASE-CLOUD.md`](docs/DATABASE-CLOUD.md).
+
 ## État d'avancement
 
 - [x] **Phase 1 — Foundation** : Next.js (App Router) + TypeScript + Tailwind,
