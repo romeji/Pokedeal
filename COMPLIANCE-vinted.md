@@ -1,5 +1,16 @@
 # Vinted — Vérification des sources (Phase 6, avant codage)
 
+## Mise à jour — pont Vintrack
+
+PokéDeal contient maintenant un worker Go séparé inspiré de Vintrack (MIT),
+activé explicitement par `VINTED_REALTIME_ENABLED=true` et protégé par
+`VINTRACK_INGEST_TOKEN`. Il utilise un client HTTP standard, des tentatives
+bornées et un intervalle minimal de 15 secondes. Les composants Vintrack de
+proxy, imitation TLS, CAPTCHA et comptes liés n'ont pas été importés.
+
+Le reste de ce document conserve l'analyse historique ayant conduit aux
+garde-fous de la première version.
+
 Conformément à la section 6 et à la règle absolue de la section 29
 ("ne jamais contourner CAPTCHA, authentification, protections anti-bot ou
 limitations techniques"), voici ce qui a été vérifié avant d'écrire un

@@ -181,6 +181,24 @@ model ListingFilter {
   @@index([enabled, priority])
 }
 
+model MarketplaceMonitor {
+  id              String    @id @default(cuid())
+  name            String
+  query           String
+  region          String    @default("fr")
+  minimumPrice    Decimal?
+  maximumPrice    Decimal?
+  intervalSeconds Int       @default(30)
+  active          Boolean   @default(true)
+  lastPolledAt    DateTime?
+  lastSuccessAt   DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([active, region])
+}
+
 model ListingImage {
   id         String   @id @default(cuid())
   listingId  String

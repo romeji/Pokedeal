@@ -1,0 +1,6 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/database/prisma";
+import { isVintrackRequest } from "@/lib/admin/auth";
+export const dynamic="force-dynamic";
+export async function GET(request:Request){if(!isVintrackRequest(request))return NextResponse.json({error:"Accès refusé"},{status:401});const rows=await prisma.listing.findMany({where:{marketplace:"vinted",status:{notIn:["SOLD","REMOVED","EXPIRED"]},opportunity:{isNot:null}},select:{externalId:true,url:true},orderBy:{lastSeenAt:"asc"},take:100});return NextResponse.json(rows);}
+export async function POST(request:Request){if(!isVintrackRequest(request))return NextResponse.json({error:"Accès refusé"},{status:401});const body=await request.json() as {statuses?:Array<{externalId:string;status:string}>};if(!Array.isArray(body.statuses)||body.statuses.length>100)return NextResponse.json({error:"Lot invalide"},{status:400});let updated=0;for(const item of body.statuses){if(!["SOLD","REMOVED"].includes(item.status))continue;const result=await prisma.listing.updateMany({where:{marketplace:"vinted",externalId:String(item.externalId)},data:{status:item.status}});updated+=result.count}return NextResponse.json({updated});}

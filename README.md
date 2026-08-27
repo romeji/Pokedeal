@@ -48,18 +48,12 @@ avec Cardmarket, calcul du profit/ROI, et alerte Discord automatique.
       de confiance clé manque ("mieux vaut aucune alerte qu'une mauvaise
       alerte"). `workers/pricing/opportunity-scorer.ts` écrit `Opportunity`
       + `OpportunityScore`.
-- [x] **Phase 6 — Vinted (provider réel) — bloqué par conformité, documenté** :
-      recherche faite (voir `COMPLIANCE-vinted.md`) — aucune API publique
-      pour ce cas d'usage, et le seul chemin technique restant (scraping)
-      nécessite de contourner l'anti-bot Vinted (Datadome), directement ou
-      via un service tiers payant (Apify, ScrapeBadger...). C'est interdit
-      par une règle absolue du brief (section 6/29), sans exception liée à
-      l'usage personnel — contrairement au point Cardmarket, ce n'est pas
-      une clause qu'on peut choisir d'assumer. `VintedProvider` et
-      `ManagedVintedProvider` restent des stubs, `ProviderComplianceReview`
-      est `DISABLED`. Une piste alternative plus défendable
-      (extension navigateur, session authentifiée réelle, aucun
-      contournement anti-bot) est documentée mais non codée.
+- [x] **Phase 6 — Vinted temps réel via pont Vintrack** : un worker Go
+      séparé lit les recherches configurées, normalise les annonces et les
+      transmet à PokéDeal par API interne authentifiée. PostgreSQL assure la
+      déduplication. Les opportunités conservées sont revérifiées pour les
+      statuts `SOLD`/`REMOVED`. L'intégration est inspirée de Vintrack (MIT)
+      sans importer son dashboard, ses proxies, Redis ou ses notifications.
 - [x] **Phase 7 — Discord + Telegram** : les deux implémentations sont
       interchangeables derrière `NotificationProvider`. Les workers
       `discord-notifier.ts` et `telegram-notifier.ts`
@@ -110,14 +104,13 @@ localement plutôt que de deviner leurs attributs.
 
 
 
-- Il ne parle pas réellement à Vinted (`VintedProvider` est un stub qui lève une
-  erreur explicite tant que `ProviderComplianceReview.status !== "APPROVED"`).
-  Utiliser `MockVintedProvider` en attendant.
+- Le worker `vintrack-bridge` effectue la collecte continue. Le mock reste
+  disponible pour les tests isolés.
 - Les importeurs Cardmarket lisent les exports JSON locaux fournis ; ils
   n'inventent aucun endpoint et n'utilisent pas de nouvelle clé API.
 - `GeminiVisionProvider.analyzeImages` est implémenté, mais nécessite
   `GEMINI_API_KEY` et `GEMINI_MODEL` dans `.env`.
-- Le dashboard affiche des données de démonstration, pas encore Prisma.
+- Le dashboard et la bibliothèque affichent les données Prisma réelles.
 
 ## Telegram
 
@@ -140,6 +133,16 @@ présentes. Les secrets doivent rester dans `.env`, jamais dans
 - `/admin/filters` gère les expressions personnalisées de rejet, de revue ou
   d'autorisation. Les faux/proxy, produits ouverts et emballages seuls sont
   déjà couverts ; Gemini ajoute ensuite son contrôle visuel.
+- `/admin/monitors` configure les recherches Vinted lues toutes les 15 secondes
+  ou plus par le worker Go.
+
+## Surveillance Vintrack
+
+Le lanceur Windows démarre `vintrack-bridge` puis le processeur PokéDeal
+continu. `VINTRACK_INGEST_TOKEN` protège les routes internes et est généré
+localement au premier prévol. Sur Vercel, le dashboard reste le plan de
+contrôle ; le worker Go doit tourner sur le PC ou un hôte Docker permanent.
+Voir `services/vintrack-bridge/NOTICE.md` pour l'attribution Vintrack MIT.
 
 ## Vercel
 

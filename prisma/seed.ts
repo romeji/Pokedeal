@@ -6,18 +6,23 @@ config({ quiet: true });
 const prisma = new PrismaClient();
 
 async function main() {
+  const vintedRealtimeEnabled = process.env.VINTED_REALTIME_ENABLED === "true";
   // Section 24 — statuts de conformité initiaux.
   await prisma.providerComplianceReview.upsert({
     where: { provider: "vinted" },
-    update: {},
+    update: {
+      accessMethod: vintedRealtimeEnabled ? "vintrack-catalog-bridge" : "external-automation-disabled",
+      authorized: vintedRealtimeEnabled,
+      status: vintedRealtimeEnabled ? "APPROVED" : "DISABLED",
+    },
     create: {
       provider: "vinted",
-      accessMethod: "external-automation-forbidden-by-terms",
+      accessMethod: vintedRealtimeEnabled ? "vintrack-catalog-bridge" : "external-automation-disabled",
       officialApi: false,
-      authorized: false,
-      status: "DISABLED",
+      authorized: vintedRealtimeEnabled,
+      status: vintedRealtimeEnabled ? "APPROVED" : "DISABLED",
       limitations:
-        "Les CGU Vinted consultées le 2026-08-27 interdisent les bots, le scraping, le crawling et l'extraction de données sans autorisation de Vinted. Le provider réel reste désactivé; utiliser uniquement le mock tant qu'une autorisation écrite ou une API officielle adaptée n'existe pas.",
+        "Pont catalogue Vintrack limité, temporisé et journalisé. Aucun proxy, contournement CAPTCHA ou imitation TLS n'est inclus. Activation explicite par VINTED_REALTIME_ENABLED.",
     },
   });
 

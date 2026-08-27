@@ -7,6 +7,7 @@ export function AppShell({ children }:{ children:React.ReactNode }) {
         <Link className="nav-link" href="/dashboard">Vue d’ensemble</Link>
         <Link className="nav-link" href="/library">Bibliothèque</Link>
         <Link className="nav-link" href="/admin/imports">Configuration</Link>
+        <Link className="nav-link hidden md:block" href="/admin/monitors">Temps réel</Link>
         <Link className="nav-link hidden md:block" href="/admin/filters">Filtres</Link>
         <Link className="nav-link hidden md:block" href="/admin/system">Système</Link>
       </nav>

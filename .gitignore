@@ -6,6 +6,8 @@ node_modules/
 *.log
 *.tsbuildinfo
 .pokedeal-dev.log
+.pokedeal-processor.log
+.pokedeal-*.pid
 
 # Fichiers Cardmarket téléchargés (13-15 Mo, régénérables via /Data/Download)
 /data/

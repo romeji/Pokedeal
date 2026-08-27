@@ -1,0 +1,6 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/database/prisma";
+import { isVintrackRequest } from "@/lib/admin/auth";
+export const dynamic="force-dynamic";
+export async function GET(request:Request){if(!isVintrackRequest(request))return NextResponse.json({error:"Accès refusé"},{status:401});const monitors=await prisma.marketplaceMonitor.findMany({where:{active:true},orderBy:{createdAt:"asc"}});return NextResponse.json(monitors.map(m=>({id:m.id,name:m.name,query:m.query,region:m.region,minimumPrice:m.minimumPrice?Number(m.minimumPrice):null,maximumPrice:m.maximumPrice?Number(m.maximumPrice):null,intervalSeconds:m.intervalSeconds})));}
+export async function POST(request:Request){if(!isVintrackRequest(request))return NextResponse.json({error:"Accès refusé"},{status:401});const b=await request.json() as {id?:string;success?:boolean;error?:string};if(!b.id)return NextResponse.json({error:"ID manquant"},{status:400});await prisma.marketplaceMonitor.update({where:{id:b.id},data:{lastPolledAt:new Date(),lastSuccessAt:b.success?new Date():undefined,lastError:b.success?null:String(b.error??"Erreur inconnue").slice(0,1000)}});return NextResponse.json({updated:true});}

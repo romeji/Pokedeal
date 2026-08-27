@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:up": "docker compose up -d db",
+    "realtime:up": "docker compose up -d db vintrack-bridge",
     "db:down": "docker compose down",
     "worker:catalog-import": "tsx workers/cardmarket/import.ts catalog",
     "worker:price-import": "tsx workers/cardmarket/import.ts prices",
@@ -25,6 +26,7 @@
     "notification:test:telegram": "tsx workers/notifications/test-notification.ts telegram",
     "notification:telegram:chat-id": "tsx workers/notifications/telegram-chat-id.ts",
     "pipeline:run-once": "tsx workers/run-pipeline.ts",
+    "pipeline:continuous": "tsx workers/run-continuous.ts",
     "test": "vitest run",
     "prisma:seed": "tsx prisma/seed.ts"
   },

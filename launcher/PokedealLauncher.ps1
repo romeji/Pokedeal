@@ -34,11 +34,12 @@ $start = New-Object Windows.Forms.Button; $start.Text="Démarrer PokéDeal"; $st
 function Invoke-Check([int]$index,[scriptblock]$action){$labels[$index].Text="…  $($checks[$index])";[Windows.Forms.Application]::DoEvents();try{& $action;if($LASTEXITCODE -ne 0){throw "Code $LASTEXITCODE"};$labels[$index].Text="✓  $($checks[$index])";$labels[$index].ForeColor=[Drawing.Color]::FromArgb(110,231,183);return $true}catch{$labels[$index].Text="✗  $($checks[$index])";$labels[$index].ForeColor=[Drawing.Color]::FromArgb(251,113,133);$status.Text="$($checks[$index]) : $($_.Exception.Message)";return $false}}
 
 $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="Vérifications en cours…"
+  & (Join-Path $PSScriptRoot 'StopPokedealServices.ps1')
   $steps=@(
     {node --version | Out-Null; npm --version | Out-Null},
-    {if(!(Test-Path -LiteralPath (Join-Path $projectRoot '.env'))){throw '.env absent'}},
+    {& (Join-Path $PSScriptRoot 'EnsureRealtimeConfig.ps1')},
     {docker info | Out-Null},
-    {npm run db:up | Out-Null},
+    {npm run realtime:up | Out-Null},
     {npx prisma migrate deploy | Out-Null},
     {npm run prisma:seed | Out-Null},
     {npm test | Out-Null},
@@ -49,7 +50,7 @@ $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="V�
 })
 $start.Add_Click({
   $start.Enabled=$false
-  Start-Process -FilePath "cmd.exe" -ArgumentList "/c","npm run dev > .pokedeal-dev.log 2>&1" -WorkingDirectory $projectRoot -WindowStyle Hidden
+  & (Join-Path $PSScriptRoot 'StartPokedealServices.ps1')
   $status.Text="Démarrage… attente du serveur local."
   $script:launchAttempts=0
   $script:launchTimer=New-Object Windows.Forms.Timer

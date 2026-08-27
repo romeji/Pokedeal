@@ -11,6 +11,19 @@ services:
       - "5432:5432"
     volumes:
       - pds_pgdata:/var/lib/postgresql/data
+  vintrack-bridge:
+    build:
+      context: ./services/vintrack-bridge
+    container_name: pds_vintrack_bridge
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POKEDEAL_BASE_URL: ${POKEDEAL_BASE_URL:-http://host.docker.internal:3000}
+      VINTRACK_INGEST_TOKEN: ${VINTRACK_INGEST_TOKEN:-}
+      VINTRACK_POLL_INTERVAL_SECONDS: ${VINTRACK_POLL_INTERVAL_SECONDS:-30}
+      VINTRACK_PER_PAGE: ${VINTRACK_PER_PAGE:-50}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   pds_pgdata:
