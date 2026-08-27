@@ -1,0 +1,316 @@
+// Pokémon Deal Scanner — schéma Prisma (Phase 1)
+// PostgreSQL uniquement — voir section 8 du brief : ne jamais utiliser SQLite,
+// même pour les données Vinted.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================================
+// CARDMARKET / CATALOGUE
+//
+// Schéma aligné sur les fichiers réels fournis par Jack
+// (products_singles_6.json, products_nonsingles_6.json, price_guide_6.json —
+// "6" = idGame Pokémon, déduit du nom de fichier, absent du contenu JSON).
+//
+// Constats importants (vérifiés sur les fichiers, pas supposés) :
+//  - Cardmarket utilise UN seul espace d'idProduct pour singles ET produits
+//    scellés — idCategory distingue le type (51 = Single, 52 = Booster,
+//    53 = Display, 1016 = Elite Trainer Box, etc.). D'où un modèle unique
+//    CardmarketProduct plutôt que deux tables séparées.
+//  - Le catalogue NE CONTIENT PAS la langue, le numéro de carte, ni la
+//    rareté — juste idProduct/idCategory/categoryName/idExpansion/idMetacard/
+//    name/dateAdded. Ces attributs devront venir du Product Matcher
+//    (Phase 4/11), pas de l'import catalogue.
+//  - Le Price Guide n'a PAS de champ langue non plus (juste des variantes
+//    holo/non-holo pour les singles) — donc pas de prix séparé FR vs JP
+//    au niveau de cet export. Voir COMPLIANCE-cardmarket.md pour l'impact
+//    sur la normalisation FR/JP demandée section 5.
+//  - idExpansion est un identifiant Cardmarket sans nom/code fourni dans
+//    ces fichiers — un export "Expansions" séparé est nécessaire pour
+//    résoudre idExpansion → nom de set / code. PokemonSet reste donc un
+//    stub (name/code nullable) tant que ce fichier n'est pas fourni.
+// ==========================================================
+
+model PokemonSet {
+  id                    String    @id @default(cuid())
+  cardmarketExpansionId Int       @unique // idExpansion — seule info fiable pour l'instant
+  code                  String? // TODO — nécessite l'export "Expansions" (non fourni)
+  name                  String? // idem
+  releasedAt            DateTime?
+  products              CardmarketProduct[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+enum ProductKind {
+  SINGLE // idCategory 51 — carte
+  BOOSTER
+  DISPLAY
+  ELITE_TRAINER_BOX
+  THEME_DECK
+  BOX_SET
+  TIN
+  BLISTER
+  COIN
+  TRAINER_KIT
+  LOT
+  OTHER
+}
+
+// Un seul modèle pour tout produit Cardmarket (single ou scellé) —
+// reflète fidèlement l'espace d'idProduct de Cardmarket.
+model CardmarketProduct {
+  id                  String      @id @default(cuid())
+  cardmarketProductId Int         @unique // idProduct
+  cardmarketCategoryId Int // idCategory
+  categoryName        String // categoryName brut, ex: "Pokémon Elite Trainer Boxes"
+  kind                ProductKind
+  name                String
+  setId               String?
+  set                 PokemonSet? @relation(fields: [setId], references: [id])
+  cardmarketMetacardId Int? // idMetacard (0 si non applicable)
+  cardmarketDateAdded  DateTime? // dateAdded brut du catalogue (peut être "0000-00-00")
+
+  // Champs enrichis plus tard par le Product Matcher (Phase 11), absents du catalogue brut
+  language            String?
+  number              String?
+  rarity              String?
+  edition             String?
+  imageUrl            String?
+
+  priceSnapshots      PriceSnapshot[]
+  productMatches      ProductMatch[]
+  watchlistEntries    Watchlist[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([cardmarketCategoryId])
+  @@index([setId])
+}
+
+
+// ==========================================================
+// PRIX + HISTORIQUE (section 4)
+// ==========================================================
+
+model PriceSource {
+  id        String   @id @default(cuid())
+  name      String   @unique // "cardmarket", futur: "ebay-sold", ...
+  isPrimary Boolean  @default(false)
+  snapshots PriceSnapshot[]
+  createdAt DateTime @default(now())
+}
+
+model PriceSnapshot {
+  id            String    @id @default(cuid())
+  productId     String
+  product       CardmarketProduct @relation(fields: [productId], references: [id])
+  sourceId      String
+  source        PriceSource    @relation(fields: [sourceId], references: [id])
+  currency      String    @default("EUR")
+
+  // Champs alignés sur price_guide_6.json — "low"/"avg"/"trend" + moyennes
+  // glissantes 1/7/30 jours. Les variantes "-holo" n'existent que pour les
+  // singles (idCategory 51) ; null pour les produits scellés.
+  lowPrice      Decimal?
+  averagePrice  Decimal?
+  trendPrice    Decimal?
+  avg1Price     Decimal?
+  avg7Price     Decimal?
+  avg30Price    Decimal?
+  lowPriceHolo     Decimal?
+  averagePriceHolo Decimal?
+  trendPriceHolo   Decimal?
+  avg1PriceHolo    Decimal?
+  avg7PriceHolo    Decimal?
+  avg30PriceHolo   Decimal?
+
+  sampleSize    Int?
+  retrievedAt   DateTime  @default(now())
+
+  @@index([productId, retrievedAt])
+}
+
+// ==========================================================
+// VINTED / LISTINGS (section 6-7)
+// ==========================================================
+
+model Listing {
+  id           String   @id @default(cuid())
+  marketplace  String   @default("vinted")
+  externalId   String
+  url          String
+  title        String
+  description  String?
+  price        Decimal
+  currency     String   @default("EUR")
+  status       String   @default("NEW") // NEW / ANALYZED / MATCHED / SCORED / EXPIRED / REMOVED
+  listingHash  String?
+  titleHash    String?
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @updatedAt
+  images       ListingImage[]
+  items        ListingItem[]
+  matches      ProductMatch[]
+  opportunity  Opportunity?
+
+  @@unique([marketplace, externalId])
+  @@index([status])
+}
+
+model ListingImage {
+  id         String   @id @default(cuid())
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id])
+  url        String
+  imageHash  String?
+  analyzedAt DateTime?
+  visionResultRaw Json? // réponse Gemini brute mise en cache (section 9 : ne pas ré-analyser la même image)
+  createdAt  DateTime @default(now())
+
+  @@index([imageHash])
+}
+
+// Un élément identifié dans une annonce (utile pour les lots, section 12)
+model ListingItem {
+  id                String   @id @default(cuid())
+  listingId         String
+  listing           Listing  @relation(fields: [listingId], references: [id])
+  label             String // nom brut identifié par la vision
+  confidenceScore   Float?
+  imageQualityScore Float?
+  counterfeitRiskScore Float?
+  needsManualReview Boolean  @default(false)
+  createdAt         DateTime @default(now())
+}
+
+// ==========================================================
+// MATCHING / OPPORTUNITÉS (section 11, 13, 14)
+// ==========================================================
+
+model ProductMatch {
+  id         String   @id @default(cuid())
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id])
+  productId  String
+  product    CardmarketProduct @relation(fields: [productId], references: [id])
+  confidence Float
+  createdAt  DateTime @default(now())
+
+  @@index([listingId])
+}
+
+model Opportunity {
+  id                      String   @id @default(cuid())
+  listingId               String   @unique
+  listing                 Listing  @relation(fields: [listingId], references: [id])
+
+  marketValue             Decimal?
+  conservativeMarketValue Decimal?
+  probableMarketValue     Decimal?
+  purchasePrice           Decimal
+  shippingCost            Decimal  @default(0)
+  platformFees            Decimal  @default(0)
+  resaleFees              Decimal  @default(0)
+  riskMargin              Decimal  @default(0)
+  estimatedProfit         Decimal?
+  roi                     Float?
+
+  status                  String   @default("NEW") // NEW / FAVORITE / BOUGHT / SOLD / IGNORED / TO_CHECK
+  score                   OpportunityScore?
+  notifications           DiscordNotification[]
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model OpportunityScore {
+  id                String      @id @default(cuid())
+  opportunityId     String      @unique
+  opportunity       Opportunity @relation(fields: [opportunityId], references: [id])
+
+  score             Int // 0-100
+  category          String // EXCEPTIONNEL / TRES_BON_DEAL / BON_DEAL / A_SURVEILLER / IGNORER
+  confidenceScore   Float
+  riskScore         Float
+  liquidityScore    Float?
+
+  createdAt         DateTime @default(now())
+}
+
+// ==========================================================
+// WATCHLIST / ALERTES (section 17, 19)
+// ==========================================================
+
+model Watchlist {
+  id           String   @id @default(cuid())
+  productId    String?
+  product      CardmarketProduct? @relation(fields: [productId], references: [id])
+  label        String // ex: "Pokémon 151 ETB FR"
+  maxPrice     Decimal?
+  createdAt    DateTime @default(now())
+}
+
+model AlertRule {
+  id                 String   @id @default(cuid())
+  name               String
+  minimumScore       Int?
+  minimumProfit      Decimal?
+  minimumROI          Float?
+  maximumPrice       Decimal?
+  minimumConfidence  Float?
+  maximumRisk        Float?
+  languages          String[] @default([])
+  sets               String[] @default([])
+  productTypes       String[] @default([])
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+}
+
+model DiscordNotification {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
+  sentAt        DateTime    @default(now())
+  success       Boolean
+  error         String?
+}
+
+// ==========================================================
+// COMPLIANCE (section 24) — obligatoire avant d'activer un provider réel
+// ==========================================================
+
+model ProviderComplianceReview {
+  id               String   @id @default(cuid())
+  provider         String   @unique // "vinted", "cardmarket", "gemini", ...
+  accessMethod     String // "official-api" / "scraping" / "unofficial-lib"
+  officialApi      Boolean  @default(false)
+  authorized       Boolean  @default(false)
+  termsReviewedAt  DateTime?
+  limitations      String?
+  status           String   @default("REVIEW_REQUIRED") // APPROVED / REVIEW_REQUIRED / DISABLED
+  updatedAt        DateTime @updatedAt
+}
+
+// ==========================================================
+// WORKERS / MONITORING (section 22-23)
+// ==========================================================
+
+model WorkerRun {
+  id          String    @id @default(cuid())
+  jobName     String // "listing-collector", "listing-analyzer", "opportunity-scorer", "discord-notifier", "cardmarket-catalog-import", "cardmarket-price-import"
+  status      String // RUNNING / SUCCESS / FAILED
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?
+  retryCount  Int       @default(0)
+  resultSummary Json? // ex: { imported: 123 } — pour /admin/system
+
+  @@index([jobName, startedAt])
+}

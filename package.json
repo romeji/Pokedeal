@@ -1,0 +1,48 @@
+{
+  "name": "pokemon-deal-scanner",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "worker:catalog-import": "tsx workers/cardmarket/import.ts catalog",
+    "worker:price-import": "tsx workers/cardmarket/import.ts prices",
+    "worker:price-check": "tsx workers/pricing/price-check.ts",
+    "worker:listing-collector": "tsx workers/marketplace/listing-collector.ts",
+    "worker:listing-analyzer": "tsx workers/ai/listing-analyzer.ts",
+    "worker:opportunity-scorer": "tsx workers/pricing/opportunity-scorer.ts",
+    "worker:discord-notifier": "tsx workers/notifications/discord-notifier.ts",
+    "pipeline:run-once": "tsx workers/run-pipeline.ts",
+    "test": "vitest run",
+    "prisma:seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@prisma/client": "5.18.0",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4",
+    "@types/node": "20.14.15",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "prisma": "5.18.0",
+    "tailwindcss": "3.4.7",
+    "postcss": "8.4.40",
+    "autoprefixer": "10.4.19",
+    "tsx": "4.16.5",
+    "vitest": "2.0.5"
+  }
+}

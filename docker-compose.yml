@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pds_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pds
+      POSTGRES_PASSWORD: pds
+      POSTGRES_DB: pokemon_deal_scanner
+    ports:
+      - "5432:5432"
+    volumes:
+      - pds_pgdata:/var/lib/postgresql/data
+
+volumes:
+  pds_pgdata:
