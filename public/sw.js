@@ -1,5 +1,5 @@
-const CACHE = "pokedeal-v2";
-const SHELL = ["/dashboard", "/library", "/items", "/icon.svg"];
+const CACHE = "pokedeal-v3";
+const SHELL = ["/dashboard", "/library", "/items", "/collection", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

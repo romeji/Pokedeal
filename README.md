@@ -157,6 +157,9 @@ présentes. Les secrets doivent rester dans `.env`, jamais dans
 ## Interface, imports et filtres
 
 - `/dashboard` affiche les données Prisma réelles.
+- `/collection` gère plusieurs classeurs : collection globale, classeur libre,
+  master set cartes et master set items. Les checklists et visuels HD viennent
+  de TCGdex ; les cotations sont reliées aux identifiants Cardmarket disponibles.
 - `/library` conserve uniquement les opportunités à profit positif dont
   l'annonce n'est pas `SOLD`, `REMOVED` ou `EXPIRED`.
 - `/items` recherche le catalogue Cardmarket et ses derniers prix, affiche la
@@ -169,6 +172,9 @@ présentes. Les secrets doivent rester dans `.env`, jamais dans
   déjà couverts ; Gemini ajoute ensuite son contrôle visuel.
 - `/admin/monitors` configure les recherches Vinted lues toutes les 15 secondes
   ou plus par le worker Go.
+
+L'audit produit et les prochaines fonctions destinées à atteindre le niveau des
+leaders sont détaillés dans [`docs/PRODUCT-ROADMAP.md`](docs/PRODUCT-ROADMAP.md).
 
 ## Surveillance Vintrack
 

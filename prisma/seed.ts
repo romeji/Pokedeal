@@ -53,6 +53,20 @@ async function main() {
     },
   });
 
+  await prisma.providerComplianceReview.upsert({
+    where: { provider: "tcgdex" },
+    update: {},
+    create: {
+      provider: "tcgdex",
+      accessMethod: "public-open-source-api",
+      officialApi: true,
+      authorized: true,
+      status: "APPROVED",
+      limitations:
+        "API TCGdex publique et base open source pour les métadonnées et visuels de collection. Les marques et illustrations Pokémon restent la propriété de leurs ayants droit. Cardmarket demeure la source de prix principale de PokéDeal.",
+    },
+  });
+
   // Section 4 — source de prix principale.
   await prisma.priceSource.upsert({
     where: { name: "cardmarket" },
