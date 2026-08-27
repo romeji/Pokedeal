@@ -22,9 +22,7 @@ export class PriceEngine implements PriceProvider {
 
   /** Implémente PriceProvider — prend un idProduct Cardmarket (string). */
   async getProductPrice(cardmarketProductId: string): Promise<PriceResult | null> {
-    const product = await prisma.cardmarketProduct.findUnique({
-      where: { cardmarketProductId: Number(cardmarketProductId) },
-    });
+    const product = await this.findProduct(cardmarketProductId);
     if (!product) return null;
 
     const latest = await prisma.priceSnapshot.findFirst({
@@ -54,9 +52,7 @@ export class PriceEngine implements PriceProvider {
   async getMarketValueRange(
     cardmarketProductId: string
   ): Promise<{ optimisticValue: number; probableValue: number; conservativeValue: number; retrievedAt: Date } | null> {
-    const product = await prisma.cardmarketProduct.findUnique({
-      where: { cardmarketProductId: Number(cardmarketProductId) },
-    });
+    const product = await this.findProduct(cardmarketProductId);
     if (!product) return null;
 
     const latest = await prisma.priceSnapshot.findFirst({
@@ -75,11 +71,13 @@ export class PriceEngine implements PriceProvider {
     // optimisticValue : le plus élevé parmi trend/avg.
     const candidates = [low, avg, trend].filter((v): v is number => v !== null);
     if (candidates.length === 0) return null;
+    const firstCandidate = candidates[0];
+    if (firstCandidate === undefined) return null;
 
     // Bug évité : si low/avg sont absents mais trend présent, replier sur
     // trend plutôt que Math.min() sur un tableau vide (= Infinity).
     const lowAvg = [low, avg].filter((v): v is number => v !== null);
-    const conservativeValue = lowAvg.length > 0 ? Math.min(...lowAvg) : candidates[0];
+    const conservativeValue = lowAvg.length > 0 ? Math.min(...lowAvg) : firstCandidate;
     const probableValue = avg ?? trend ?? conservativeValue;
     const optimisticValue = Math.max(...candidates);
 
@@ -95,9 +93,7 @@ export class PriceEngine implements PriceProvider {
     cardmarketProductId: string,
     windowDays: 7 | 30 | 90
   ): Promise<{ changePercent: number; fromPrice: number; toPrice: number } | null> {
-    const product = await prisma.cardmarketProduct.findUnique({
-      where: { cardmarketProductId: Number(cardmarketProductId) },
-    });
+    const product = await this.findProduct(cardmarketProductId);
     if (!product) return null;
 
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
@@ -134,6 +130,13 @@ export class PriceEngine implements PriceProvider {
     const avg = snapshot.averagePrice !== null ? Number(snapshot.averagePrice) : null;
     const low = snapshot.lowPrice !== null ? Number(snapshot.lowPrice) : null;
     return trend ?? avg ?? low;
+  }
+
+  /** Accepte l'id Cardmarket public ou l'id Prisma interne produit par ProductMatcher. */
+  private findProduct(identifier: string) {
+    return /^\d+$/.test(identifier)
+      ? prisma.cardmarketProduct.findUnique({ where: { cardmarketProductId: Number(identifier) } })
+      : prisma.cardmarketProduct.findUnique({ where: { id: identifier } });
   }
 
   /**

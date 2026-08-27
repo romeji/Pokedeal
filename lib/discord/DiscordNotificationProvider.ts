@@ -1,4 +1,7 @@
-import type { NotificationProvider, OpportunityNotificationPayload } from "./types";
+import type {
+  NotificationProvider,
+  OpportunityNotificationPayload,
+} from "@/lib/notifications/types";
 
 export class DiscordNotificationProvider implements NotificationProvider {
   readonly name = "discord";

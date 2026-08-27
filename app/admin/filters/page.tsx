@@ -1,0 +1,2 @@
+import { FilterManager } from "@/components/admin/FilterManager";
+export default function FiltersPage(){return <main className="p-5 md:p-10"><p className="eyebrow">Qualité des annonces</p><h1 className="mt-2 font-display text-4xl font-bold">Filtres intelligents</h1><p className="mt-2 max-w-3xl text-slate-400">Le moteur bloque déjà les contrefaçons déclarées et emballages seuls, met les produits ouverts en vérification, puis utilise le risque Gemini. Ajoute ici ton propre vocabulaire.</p><section className="surface mt-8 p-6"><FilterManager/></section></main>}

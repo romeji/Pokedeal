@@ -38,9 +38,11 @@ règle absolue du projet, et une pratique que je n'implémenterai pas.
 - `ManagedVintedProvider` (Apify/ScrapeBadger) reste également un stub —
   ce n'est pas une solution plus "propre", juste le même contournement
   sous-traité à quelqu'un d'autre.
-- `ProviderComplianceReview("vinted").status` reste `REVIEW_REQUIRED` (à
-  garder ainsi tant qu'aucune voie légitime n'existe — ne jamais passer à
-  `APPROVED` pour ce provider dans l'état actuel des choses).
+- `ProviderComplianceReview("vinted").status` est `DISABLED`. Les Termes et
+  conditions officiels consultés le 27 août 2026 interdisent explicitement
+  les bots, le scraping, le crawling et l'extraction de données sans
+  autorisation de Vinted : https://www.vinted.fr/terms-and-conditions
+  (section 6, « Obligations et interdictions »).
 - Toute la Phase 4/5 reste testable de bout en bout via `MockVintedProvider`.
 
 ## 4. Piste alternative plus défendable, non implémentée ici

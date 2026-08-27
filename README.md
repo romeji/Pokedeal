@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Pokémon Deal Scanner
 
 Surveillance des annonces Pokémon sur Vinted, identification par vision, comparaison
@@ -58,19 +57,22 @@ avec Cardmarket, calcul du profit/ROI, et alerte Discord automatique.
       l'usage personnel — contrairement au point Cardmarket, ce n'est pas
       une clause qu'on peut choisir d'assumer. `VintedProvider` et
       `ManagedVintedProvider` restent des stubs, `ProviderComplianceReview`
-      reste `REVIEW_REQUIRED`. Une piste alternative plus défendable
+      est `DISABLED`. Une piste alternative plus défendable
       (extension navigateur, session authentifiée réelle, aucun
       contournement anti-bot) est documentée mais non codée.
-- [x] **Phase 7 — Discord** : `workers/notifications/discord-notifier.ts`
+- [x] **Phase 7 — Discord + Telegram** : les deux implémentations sont
+      interchangeables derrière `NotificationProvider`. Les workers
+      `discord-notifier.ts` et `telegram-notifier.ts`
       applique les `AlertRule` actives (section 17) et le `Watchlist`
       (section 19) avant d'envoyer — aucune alerte tant que Jack n'a créé
       aucune règle ni entrée watchlist (fail-safe : silence plutôt que
       spam). Dédoublonnage (section 18) : une notification par
-      `Opportunity` maximum.
+      `Opportunity` et par canal maximum, avec journal des tentatives et
+      nouvelle tentative bornée en cas d'échec.
 - [x] **Phase 8 — Workers + automatisation** : `runJob()` trace chaque
       exécution dans `WorkerRun` (status/startedAt/completedAt/error/
       retryCount, section 22). `workers/run-pipeline.ts` enchaîne collecte
-      → analyse → scoring → notification en une commande
+      → analyse → scoring → notifications Discord et Telegram en une commande
       (`npm run pipeline:run-once`), à planifier via cron OS (gratuit,
       simple — pas d'orchestrateur distribué en V1). `/admin/system`
       (section 23) affiche les derniers jobs et le statut de conformité de
@@ -85,7 +87,7 @@ Prérequis : Node.js 20+, Docker.
 
 ```bash
 npm install
-cp .env.example .env          # puis compléter GEMINI_API_KEY / DISCORD_WEBHOOK_URL
+cp .env.example .env          # puis compléter les clés réellement utilisées
 npm run db:up                 # démarre PostgreSQL (Docker)
 npx prisma migrate dev --name init
 npm run prisma:seed           # initialise les statuts de conformité
@@ -111,11 +113,45 @@ localement plutôt que de deviner leurs attributs.
 - Il ne parle pas réellement à Vinted (`VintedProvider` est un stub qui lève une
   erreur explicite tant que `ProviderComplianceReview.status !== "APPROVED"`).
   Utiliser `MockVintedProvider` en attendant.
-- Il ne parle pas réellement à Cardmarket (`CardmarketCatalogImporter` /
-  `CardmarketPriceImporter` sont des stubs — la doc officielle doit être
-  vérifiée avant tout code réel, section 3 du brief).
-- `GeminiVisionProvider.analyzeImages` n'est pas implémenté (Phase 4).
+- Les importeurs Cardmarket lisent les exports JSON locaux fournis ; ils
+  n'inventent aucun endpoint et n'utilisent pas de nouvelle clé API.
+- `GeminiVisionProvider.analyzeImages` est implémenté, mais nécessite
+  `GEMINI_API_KEY` et `GEMINI_MODEL` dans `.env`.
 - Le dashboard affiche des données de démonstration, pas encore Prisma.
+
+## Telegram
+
+1. Crée un bot avec `@BotFather`, copie son token dans `TELEGRAM_BOT_TOKEN`.
+2. Démarre une conversation avec le bot (ou ajoute-le au groupe/canal cible).
+3. Renseigne l'identifiant dans `TELEGRAM_CHAT_ID`.
+4. Vérifie l'envoi réel avec `npm run notification:test:telegram`.
+
+Le pipeline envoie aussi sur Telegram lorsque les deux variables sont
+présentes. Les secrets doivent rester dans `.env`, jamais dans
+`.env.example` ni dans Git.
+
+## Interface, imports et filtres
+
+- `/dashboard` affiche les données Prisma réelles.
+- `/library` conserve uniquement les opportunités à profit positif dont
+  l'annonce n'est pas `SOLD`, `REMOVED` ou `EXPIRED`.
+- `/admin/imports` importe les exports JSON Cardmarket par lots adaptés aux
+  limites Vercel. L'accès exige `ADMIN_TOKEN`.
+- `/admin/filters` gère les expressions personnalisées de rejet, de revue ou
+  d'autorisation. Les faux/proxy, produits ouverts et emballages seuls sont
+  déjà couverts ; Gemini ajoute ensuite son contrôle visuel.
+
+## Vercel
+
+Relier le dépôt à Vercel, connecter un PostgreSQL compatible serverless,
+puis configurer `DATABASE_URL`, `ADMIN_TOKEN`, Gemini et les notifications.
+Appliquer les migrations avec `npx prisma migrate deploy`. Docker reste local.
+
+## Lanceur Windows
+
+Le raccourci `Pokedeal` du Bureau ouvre un prévol graphique : Node, `.env`,
+Docker, PostgreSQL, migrations, seed, tests, lint et build doivent tous être
+cochés avant que le bouton de démarrage soit activé.
 
 Ces limites sont volontaires : le brief demande explicitement de ne jamais
 inventer d'API/endpoint/URL, et d'avancer phase par phase (sections 26 et 29).
@@ -148,12 +184,12 @@ VINTED → NORMALIZER → GEMINI VISION → PRODUCT MATCHER → CARDMARKET PRODU
                                                    OPPORTUNITY ENGINE
                                                    (Profit / ROI / Risk / Score)
                                                               ↓
-                                                    DISCORD → DASHBOARD
+                                              DISCORD + TELEGRAM → DASHBOARD
 ```
 
 Le cœur de l'application ne dépend jamais directement de Vinted, Gemini ou
 Cardmarket — uniquement des interfaces dans `lib/marketplace/types.ts`,
-`lib/pricing/types.ts`, `lib/ai/types.ts`, `lib/discord/types.ts`.
+`lib/pricing/types.ts`, `lib/ai/types.ts`, `lib/notifications/types.ts`.
 
 ## Structure
 
@@ -165,12 +201,11 @@ lib/
   ai/           VisionProvider + Gemini
   pricing/      PriceProvider + moteur de prix
   scoring/      calcul du score d'opportunité
-  discord/      NotificationProvider + implémentation Discord
+  notifications/ contrat NotificationProvider indépendant du canal
+  discord/      implémentation Discord
+  telegram/     implémentation Telegram Bot API
   compliance/   garde-fou ProviderComplianceReview
   database/     client Prisma
 workers/        jobs listés section 22 (à implémenter phase par phase)
 prisma/         schema.prisma + seed
 ```
-=======
-# Pokedeal
->>>>>>> 73cecd38357a3831f752ddc22ed877f8a98b3fce

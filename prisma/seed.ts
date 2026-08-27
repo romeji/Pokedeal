@@ -1,4 +1,7 @@
 import { PrismaClient } from "@prisma/client";
+import { config } from "dotenv";
+
+config({ quiet: true });
 
 const prisma = new PrismaClient();
 
@@ -9,11 +12,12 @@ async function main() {
     update: {},
     create: {
       provider: "vinted",
-      accessMethod: "TODO",
+      accessMethod: "external-automation-forbidden-by-terms",
       officialApi: false,
       authorized: false,
-      status: "REVIEW_REQUIRED",
-      limitations: "Méthode d'accès non encore vérifiée (voir section 6 du brief).",
+      status: "DISABLED",
+      limitations:
+        "Les CGU Vinted consultées le 2026-08-27 interdisent les bots, le scraping, le crawling et l'extraction de données sans autorisation de Vinted. Le provider réel reste désactivé; utiliser uniquement le mock tant qu'une autorisation écrite ou une API officielle adaptée n'existe pas.",
     },
   });
 

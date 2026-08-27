@@ -151,6 +151,8 @@ model Listing {
   price        Decimal
   currency     String   @default("EUR")
   status       String   @default("NEW") // NEW / ANALYZED / MATCHED / SCORED / EXPIRED / REMOVED
+  filterReason String?
+  filterFlags  String[] @default([])
   listingHash  String?
   titleHash    String?
   firstSeenAt  DateTime @default(now())
@@ -162,6 +164,21 @@ model Listing {
 
   @@unique([marketplace, externalId])
   @@index([status])
+}
+
+model ListingFilter {
+  id        String   @id @default(cuid())
+  label     String
+  pattern   String
+  category  String
+  action    String   @default("REJECT") // REJECT / REVIEW / ALLOW
+  isRegex   Boolean  @default(false)
+  enabled   Boolean  @default(true)
+  priority  Int      @default(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, priority])
 }
 
 model ListingImage {
@@ -277,9 +294,15 @@ model DiscordNotification {
   id            String      @id @default(cuid())
   opportunityId String
   opportunity   Opportunity @relation(fields: [opportunityId], references: [id])
-  sentAt        DateTime    @default(now())
+  channel       String      @default("discord")
+  attemptCount  Int         @default(1)
+  lastAttemptAt DateTime    @default(now())
+  sentAt        DateTime?
   success       Boolean
   error         String?
+
+  @@unique([opportunityId, channel])
+  @@index([channel, success])
 }
 
 // ==========================================================

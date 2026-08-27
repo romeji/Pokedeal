@@ -1,50 +1,78 @@
 import { prisma } from "@/lib/database/prisma";
 import { DiscordNotificationProvider } from "@/lib/discord/DiscordNotificationProvider";
-import type { NotificationProvider } from "@/lib/discord/types";
+import type { NotificationProvider } from "@/lib/notifications/types";
 import { runJob } from "@/lib/workers/runJob";
 
-/**
- * Phase 7 — pour chaque Opportunity nouvellement SCORED sans notification
- * Discord déjà envoyée : vérifie les AlertRule actives (section 17) et le
- * Watchlist (section 19), puis notifie si les seuils sont atteints.
- *
- * Dédoublonnage (section 18) : une notification n'est envoyée qu'une
- * seule fois par Opportunity (une ligne DiscordNotification existante
- * suffit à bloquer un renvoi) — pas de spam en boucle du même deal.
- */
-export class DiscordNotifierWorker {
-  constructor(private readonly notifier: NotificationProvider = new DiscordNotificationProvider()) {}
+export interface NotificationRunResult {
+  sent: number;
+  suppressedByRules: number;
+  alreadyNotified: number;
+  retryLimitReached: number;
+  errors: number;
+}
 
-  async runOnce(limit = 20): Promise<{ sent: number; suppressedByRules: number; alreadyNotified: number; errors: number }> {
+/**
+ * Worker indépendant du canal. La déduplication est faite par le couple
+ * (opportunityId, notifier.name), ce qui autorise une alerte Discord ET une
+ * alerte Telegram pour la même opportunité sans répéter un même canal.
+ */
+export class NotificationNotifierWorker {
+  constructor(private readonly notifier: NotificationProvider) {}
+
+  async runOnce(limit = 20): Promise<NotificationRunResult> {
+    const channel = this.notifier.name;
+    const maxAttempts = readMaxAttempts();
     const opportunities = await prisma.opportunity.findMany({
-      where: { listing: { status: "SCORED" }, notifications: { none: {} } },
-      include: { listing: { include: { images: true, matches: { include: { product: true } } } }, score: true },
+      where: {
+        listing: { status: "SCORED" },
+        notifications: { none: { channel, success: true } },
+      },
+      include: {
+        listing: {
+          include: { images: true, matches: { include: { product: true } } },
+        },
+        score: true,
+        notifications: { where: { channel } },
+      },
       take: limit,
     });
 
-    let sent = 0;
-    let suppressedByRules = 0;
-    let alreadyNotified = 0;
-    let errors = 0;
-
+    const result: NotificationRunResult = {
+      sent: 0,
+      suppressedByRules: 0,
+      alreadyNotified: 0,
+      retryLimitReached: 0,
+      errors: 0,
+    };
     const activeRules = await prisma.alertRule.findMany({ where: { active: true } });
     const watchlist = await prisma.watchlist.findMany();
 
     for (const opportunity of opportunities) {
+      const previous = opportunity.notifications[0];
+      if (previous?.success) {
+        result.alreadyNotified++;
+        continue;
+      }
+      if ((previous?.attemptCount ?? 0) >= maxAttempts) {
+        result.retryLimitReached++;
+        continue;
+      }
+      if (!opportunity.score) {
+        result.suppressedByRules++;
+        continue;
+      }
+
+      const passes =
+        this.passesAnyRule(opportunity, activeRules) ||
+        this.passesWatchlist(opportunity, watchlist);
+      if (!passes) {
+        result.suppressedByRules++;
+        continue;
+      }
+
       try {
-        if (!opportunity.score) {
-          suppressedByRules++;
-          continue;
-        }
-
-        const passes = this.passesAnyRule(opportunity, activeRules) || this.passesWatchlist(opportunity, watchlist);
-        if (!passes) {
-          suppressedByRules++;
-          continue;
-        }
-
         const product = opportunity.listing.matches[0]?.product;
-        const result = await this.notifier.sendOpportunity({
+        const sendResult = await this.notifier.sendOpportunity({
           productName: product?.name ?? opportunity.listing.title,
           listingUrl: opportunity.listing.url,
           imageUrl: opportunity.listing.images[0]?.url ?? null,
@@ -59,19 +87,36 @@ export class DiscordNotifierWorker {
           riskLabel: this.riskLabel(opportunity.score.riskScore),
         });
 
-        await prisma.discordNotification.create({
-          data: { opportunityId: opportunity.id, success: result.success, error: result.error },
+        const now = new Date();
+        await prisma.discordNotification.upsert({
+          where: { opportunityId_channel: { opportunityId: opportunity.id, channel } },
+          create: {
+            opportunityId: opportunity.id,
+            channel,
+            attemptCount: 1,
+            lastAttemptAt: now,
+            sentAt: sendResult.success ? now : null,
+            success: sendResult.success,
+            error: sendResult.error,
+          },
+          update: {
+            attemptCount: { increment: 1 },
+            lastAttemptAt: now,
+            sentAt: sendResult.success ? now : null,
+            success: sendResult.success,
+            error: sendResult.error,
+          },
         });
 
-        if (result.success) sent++;
-        else errors++;
-      } catch (err) {
-        errors++;
-        console.error(`Erreur de notification pour l'opportunité ${opportunity.id}:`, err);
+        if (sendResult.success) result.sent++;
+        else result.errors++;
+      } catch (error) {
+        result.errors++;
+        console.error(`Erreur ${channel} pour l'opportunité ${opportunity.id}:`, error);
       }
     }
 
-    return { sent, suppressedByRules, alreadyNotified, errors };
+    return result;
   }
 
   private computeDiscount(opportunity: { purchasePrice: unknown; marketValue: unknown }): number {
@@ -89,7 +134,7 @@ export class DiscordNotifierWorker {
 
   private passesAnyRule(
     opportunity: {
-      score: { score: number; confidenceScore: number } | null;
+      score: { score: number; confidenceScore: number; riskScore: number } | null;
       estimatedProfit: unknown;
       roi: number | null;
       purchasePrice: unknown;
@@ -103,7 +148,7 @@ export class DiscordNotifierWorker {
       maximumRisk: number | null;
     }>
   ): boolean {
-    if (rules.length === 0) return false; // aucune règle active = pas d'alerte tant que Jack n'en crée pas
+    if (rules.length === 0) return false;
     return rules.some((rule) => {
       if (!opportunity.score) return false;
       if (rule.minimumScore !== null && opportunity.score.score < rule.minimumScore) return false;
@@ -111,6 +156,7 @@ export class DiscordNotifierWorker {
       if (rule.minimumROI !== null && (opportunity.roi ?? 0) < rule.minimumROI) return false;
       if (rule.maximumPrice !== null && Number(opportunity.purchasePrice) > Number(rule.maximumPrice)) return false;
       if (rule.minimumConfidence !== null && opportunity.score.confidenceScore < rule.minimumConfidence) return false;
+      if (rule.maximumRisk !== null && opportunity.score.riskScore > rule.maximumRisk) return false;
       return true;
     });
   }
@@ -119,25 +165,32 @@ export class DiscordNotifierWorker {
     opportunity: { listing: { matches: Array<{ productId: string }> }; purchasePrice: unknown },
     watchlist: Array<{ productId: string | null; maxPrice: unknown }>
   ): boolean {
-    const matchedProductIds = new Set(opportunity.listing.matches.map((m) => m.productId));
+    const matchedProductIds = new Set(opportunity.listing.matches.map((match) => match.productId));
     return watchlist.some(
-      (w) =>
-        w.productId &&
-        matchedProductIds.has(w.productId) &&
-        (w.maxPrice === null || Number(opportunity.purchasePrice) <= Number(w.maxPrice))
+      (entry) =>
+        entry.productId !== null &&
+        matchedProductIds.has(entry.productId) &&
+        (entry.maxPrice === null || Number(opportunity.purchasePrice) <= Number(entry.maxPrice))
     );
   }
 }
 
+export class DiscordNotifierWorker extends NotificationNotifierWorker {
+  constructor(notifier: NotificationProvider = new DiscordNotificationProvider()) {
+    super(notifier);
+  }
+}
+
+function readMaxAttempts(): number {
+  const parsed = Number(process.env.NOTIFICATION_MAX_ATTEMPTS ?? "3");
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 3;
+}
+
 if (require.main === module) {
   runJob("discord-notifier", () => new DiscordNotifierWorker().runOnce())
-    .then((r) =>
-      console.log(
-        `Notification terminée : ${r.sent} envoyées, ${r.suppressedByRules} filtrées par les règles, ${r.errors} erreurs.`
-      )
-    )
-    .catch((err) => {
-      console.error(err);
+    .then((summary) => console.log("Notification Discord terminée :", summary))
+    .catch((error) => {
+      console.error(error);
       process.exit(1);
     });
 }

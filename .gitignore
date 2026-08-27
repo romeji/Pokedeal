@@ -1,7 +1,11 @@
 node_modules/
 .next/
 .env
+.env.local
+.env.*.local
 *.log
+*.tsbuildinfo
+.pokedeal-dev.log
 
 # Fichiers Cardmarket téléchargés (13-15 Mo, régénérables via /Data/Download)
 /data/

@@ -1,19 +1,7 @@
-export interface OpportunityNotificationPayload {
-  productName: string;
-  listingUrl: string;
-  imageUrl: string | null;
-  purchasePrice: number;
-  marketValue: number;
-  discountPercent: number;
-  estimatedProfit: number;
-  roi: number;
-  score: number;
-  category: string;
-  confidence: number;
-  riskLabel: "Faible" | "Modéré" | "Élevé";
-}
-
-export interface NotificationProvider {
-  readonly name: string;
-  sendOpportunity(payload: OpportunityNotificationPayload): Promise<{ success: boolean; error?: string }>;
-}
+// Compatibilité avec les imports historiques. Le contrat commun ne dépend
+// plus de Discord et peut être implémenté par Telegram ou un autre canal.
+export type {
+  NotificationProvider,
+  NotificationResult,
+  OpportunityNotificationPayload,
+} from "@/lib/notifications/types";

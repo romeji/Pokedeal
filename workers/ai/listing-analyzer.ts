@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/database/prisma";
 import { looksLikePokemon } from "@/lib/ai/pokemonFilter";
+import { evaluateListing } from "@/lib/ai/ListingFilterEngine";
 import { GeminiVisionProvider } from "@/lib/ai/gemini/GeminiVisionProvider";
 import { ProductMatcher } from "@/lib/matching/ProductMatcher";
 import type { IdentifiedItem, VisionProvider } from "@/lib/ai/types";
@@ -37,6 +39,12 @@ export class ListingAnalyzer {
 
     for (const listing of listings) {
       try {
+        const filter = await evaluateListing(listing.title, listing.description);
+        if (filter.action !== "ALLOW") {
+          await prisma.listing.update({ where: { id: listing.id }, data: { status: filter.action === "REJECT" ? "FILTERED" : "REVIEW_REQUIRED", filterFlags: filter.flags, filterReason: filter.reasons.join(" · ") } });
+          ignored++;
+          continue;
+        }
         if (!looksLikePokemon(listing.title, listing.description)) {
           ignored++;
           continue;
@@ -74,7 +82,8 @@ export class ListingAnalyzer {
           }
         }
 
-        await prisma.listing.update({ where: { id: listing.id }, data: { status: "ANALYZED" } });
+        const risky = await prisma.listingItem.findFirst({ where: { listingId: listing.id, OR:[{counterfeitRiskScore:{gte:0.7}},{needsManualReview:true}] } });
+        await prisma.listing.update({ where: { id: listing.id }, data: risky ? { status:"REVIEW_REQUIRED",filterFlags:["VISION_RISK"],filterReason:"Gemini signale un risque de contrefaçon ou demande une vérification manuelle" } : { status: "ANALYZED" } });
         analyzed++;
       } catch (err) {
         errors++;
@@ -102,13 +111,13 @@ export class ListingAnalyzer {
     const imageHash = createHash("sha256").update(buffer).digest("hex");
 
     const cached = await prisma.listingImage.findFirst({
-      where: { imageHash, visionResultRaw: { not: null } },
+      where: { imageHash, visionResultRaw: { not: Prisma.JsonNull } },
       select: { visionResultRaw: true },
     });
 
     let items: IdentifiedItem[];
     if (cached?.visionResultRaw) {
-      items = (cached.visionResultRaw as { items: IdentifiedItem[] }).items;
+      items = (cached.visionResultRaw as unknown as { items: IdentifiedItem[] }).items;
     } else {
       const result = await this.visionProvider.analyzeImages([imageUrl], context);
       items = result.items;

@@ -9,13 +9,28 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export default async function AdminSystemPage() {
-  const [compliance, recentRuns, listingCount, opportunityCount, notificationCount] = await Promise.all([
-    prisma.providerComplianceReview.findMany({ orderBy: { provider: "asc" } }),
-    prisma.workerRun.findMany({ orderBy: { startedAt: "desc" }, take: 30 }),
-    prisma.listing.count(),
-    prisma.opportunity.count(),
-    prisma.discordNotification.count({ where: { success: true } }),
-  ]);
+  let compliance: Awaited<ReturnType<typeof prisma.providerComplianceReview.findMany>> = [];
+  let recentRuns: Awaited<ReturnType<typeof prisma.workerRun.findMany>> = [];
+  let listingCount = 0;
+  let opportunityCount = 0;
+  let discordCount = 0;
+  let telegramCount = 0;
+  let databaseError: string | null = null;
+
+  try {
+    [compliance, recentRuns, listingCount, opportunityCount, discordCount, telegramCount] = await Promise.all([
+      prisma.providerComplianceReview.findMany({ orderBy: { provider: "asc" } }),
+      prisma.workerRun.findMany({ orderBy: { startedAt: "desc" }, take: 30 }),
+      prisma.listing.count(),
+      prisma.opportunity.count(),
+      prisma.discordNotification.count({ where: { channel: "discord", success: true } }),
+      prisma.discordNotification.count({ where: { channel: "telegram", success: true } }),
+    ]);
+  } catch {
+    databaseError = process.env.DATABASE_URL
+      ? "PostgreSQL est configuré mais ne répond pas. Vérifie Docker et la migration Prisma."
+      : "DATABASE_URL n’est pas configurée. Copie .env.example vers .env puis démarre PostgreSQL.";
+  }
 
   const jobNames = [...new Set(recentRuns.map((r) => r.jobName))];
 
@@ -24,6 +39,12 @@ export default async function AdminSystemPage() {
       <h1 className="mb-6 font-display text-2xl font-semibold text-slate-50">
         /admin/system
       </h1>
+
+      {databaseError && (
+        <div className="mb-6 rounded-card border border-market-loss bg-base-900 p-4 text-sm text-market-loss">
+          🔴 {databaseError}
+        </div>
+      )}
 
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-card border border-base-700 bg-base-900 p-4">
@@ -35,8 +56,8 @@ export default async function AdminSystemPage() {
           <div className="text-xs text-slate-400">Opportunités calculées</div>
         </div>
         <div className="rounded-card border border-base-700 bg-base-900 p-4">
-          <div className="font-mono text-xl">{notificationCount}</div>
-          <div className="text-xs text-slate-400">Notifications Discord envoyées</div>
+          <div className="font-mono text-xl">{discordCount} / {telegramCount}</div>
+          <div className="text-xs text-slate-400">Notifications Discord / Telegram</div>
         </div>
       </section>
 
@@ -111,7 +132,7 @@ export default async function AdminSystemPage() {
             {recentRuns.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-4 text-center text-slate-500">
-                  Aucun job exécuté pour l'instant — lance <code>npm run pipeline:run-once</code>.
+                  Aucun job exécuté pour l&apos;instant — lance <code>npm run pipeline:run-once</code>.
                 </td>
               </tr>
             )}

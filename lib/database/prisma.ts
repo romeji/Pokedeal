@@ -1,4 +1,7 @@
 import { PrismaClient } from "@prisma/client";
+import { config } from "dotenv";
+
+config({ quiet: true });
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 

@@ -10,8 +10,20 @@ html {
 
 body {
   @apply bg-base-950 text-slate-100 font-body antialiased;
+  background-image: radial-gradient(circle at 15% 0%, rgba(55,130,180,.18), transparent 34%), radial-gradient(circle at 100% 20%, rgba(71,85,105,.18), transparent 32%), linear-gradient(145deg,#080d14,#111a26 55%,#0a111b);
+  background-attachment: fixed;
 }
 
 .font-display {
   font-family: "Space Grotesk", sans-serif;
+}
+
+@layer components {
+  .glass-panel { @apply border border-slate-600/30 bg-slate-900/55 shadow-2xl shadow-black/30 backdrop-blur-xl; }
+  .surface { @apply glass-panel rounded-3xl; }
+  .nav-link { @apply rounded-xl px-3 py-2 text-slate-400 transition hover:bg-cyan-300/10 hover:text-cyan-200; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[.2em] text-cyan-300; }
+  .metric { @apply surface p-5 transition hover:-translate-y-0.5 hover:border-cyan-300/30; }
+  .button-primary { @apply rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-2 font-semibold text-slate-950 shadow-lg shadow-cyan-950/40 disabled:opacity-50; }
+  .input { @apply rounded-xl border border-slate-600/40 bg-slate-950/60 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400; }
 }
