@@ -6,12 +6,13 @@ export function AppShell({ children }:{ children:React.ReactNode }) {
       <nav className="flex gap-2 text-sm md:flex-col">
         <Link className="nav-link" href="/dashboard">Vue d’ensemble</Link>
         <Link className="nav-link" href="/library">Bibliothèque</Link>
+        <Link className="nav-link" href="/items">Prix & favoris</Link>
         <Link className="nav-link" href="/admin/imports">Configuration</Link>
         <Link className="nav-link hidden md:block" href="/admin/monitors">Temps réel</Link>
         <Link className="nav-link hidden md:block" href="/admin/filters">Filtres</Link>
         <Link className="nav-link hidden md:block" href="/admin/system">Système</Link>
       </nav>
-      <div className="hidden text-xs text-slate-500 md:block">Cardmarket local · Telegram actif</div>
+      <div className="hidden text-xs text-slate-500 md:block">Cardmarket partagé · Telegram actif</div>
     </aside>
     <div className="min-w-0">{children}</div>
   </div>;

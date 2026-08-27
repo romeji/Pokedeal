@@ -60,6 +60,25 @@ async function main() {
     create: { name: "cardmarket", isPrimary: true },
   });
 
+  // Sans règle active, le notifier bloque toutes les opportunités. Cette
+  // règle reprend les seuils .env et peut ensuite être modifiée en base.
+  const defaultAlertName = "Opportunités rentables par défaut";
+  const defaultAlert = {
+    minimumScore: Number(process.env.ALERT_MIN_SCORE ?? 70),
+    minimumProfit: Number(process.env.ALERT_MIN_PROFIT_EUR ?? 15),
+    minimumROI: Number(process.env.ALERT_MIN_ROI_PERCENT ?? 25),
+    minimumConfidence: Number(process.env.ALERT_MIN_CONFIDENCE ?? 0.6),
+    active: true,
+  };
+  const existingAlert = await prisma.alertRule.findFirst({
+    where: { name: defaultAlertName },
+  });
+  if (existingAlert) {
+    await prisma.alertRule.update({ where: { id: existingAlert.id }, data: defaultAlert });
+  } else {
+    await prisma.alertRule.create({ data: { name: defaultAlertName, ...defaultAlert } });
+  }
+
   console.log("Seed terminé.");
 }
 

@@ -9,11 +9,10 @@ import type { VisionProvider, VisionAnalysisResult, IdentifiedItem } from "../ty
  * avec `generationConfig.responseMimeType: "application/json"` et un
  * `responseSchema` pour forcer une sortie JSON structurée.
  *
- * ⚠️ Le nom exact du modèle "gratuit" bouge vite chez Google (plusieurs
- * générations Flash sont sorties/dépréciées rien qu'en 2026). On ne fige
- * donc PAS un modèle en dur ici : GEMINI_MODEL est obligatoire en env, et
- * la valeur doit être vérifiée dans Google AI Studio → Quotas au moment
- * où tu déploies (voir .env.example).
+ * Le modèle reste surchargeable par GEMINI_MODEL. Le défaut est une version
+ * Flash-Lite stable, multimodale et disponible sur le free tier au moment de
+ * cette implémentation. Il faut continuer à surveiller les dépréciations
+ * officielles Google.
  *
  * Limites assumées et documentées plutôt que cachées :
  *  - `counterfeitRiskScore` est une estimation du modèle à partir d'une
@@ -26,7 +25,7 @@ export class GeminiVisionProvider implements VisionProvider {
 
   constructor(
     private readonly apiKey = process.env.GEMINI_API_KEY,
-    private readonly model = process.env.GEMINI_MODEL
+    private readonly model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite"
   ) {}
 
   async analyzeImages(
@@ -34,11 +33,6 @@ export class GeminiVisionProvider implements VisionProvider {
     context?: { title?: string; description?: string }
   ): Promise<VisionAnalysisResult> {
     if (!this.apiKey) throw new Error("GEMINI_API_KEY non configuré.");
-    if (!this.model) {
-      throw new Error(
-        "GEMINI_MODEL non configuré — choisis un modèle Flash actuel dans Google AI Studio et mets-le dans .env (voir commentaire dans .env.example)."
-      );
-    }
     if (imageUrls.length === 0) return { items: [] };
 
     const imageParts = await Promise.all(imageUrls.map((url) => this.fetchImageAsPart(url)));
@@ -61,7 +55,7 @@ export class GeminiVisionProvider implements VisionProvider {
         ],
         generationConfig: {
           responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
+          responseJsonSchema: RESPONSE_SCHEMA,
         },
       }),
     });
@@ -89,6 +83,7 @@ export class GeminiVisionProvider implements VisionProvider {
     return [
       "Tu identifies des produits Pokémon TCG (cartes, ETB, displays, boosters, tins, coffrets...) à partir de photos d'une annonce de seconde main.",
       "Pour chaque élément visible distinct, retourne un objet avec : label, productType, setCode, setName, number, language, rarity, edition, condition, confidenceScore (0-1), imageQualityScore (0-1), counterfeitRiskScore (0-1, estimation prudente), needsManualReview (true si confidenceScore < 0.6 ou si un doute sérieux existe).",
+      "Le champ label doit utiliser le nom canonique anglais du produit tel qu'il apparaît généralement dans le catalogue Cardmarket, même si l'annonce est en français, allemand, italien ou japonais. Conserve setName, number et language dans leurs champs séparés.",
       "Si un champ n'est pas identifiable avec certitude sur la photo, mets-le à null plutôt que de deviner.",
       "S'il y a plusieurs cartes/produits visibles dans un lot, retourne un élément par produit distinct.",
       context?.title ? `Titre de l'annonce : ${context.title}` : "",

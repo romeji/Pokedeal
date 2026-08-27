@@ -64,20 +64,47 @@ export class ProductMatcher {
   async match(item: IdentifiedItem, minConfidence = 0.35): Promise<MatchResult | null> {
     const kind = PRODUCT_TYPE_TO_KIND[item.productType];
     const queryTokens = tokenize(item.label);
+    const primaryLabel = (item.label.split(/\s+-\s+|\[/, 1)[0]?.trim() ?? item.label)
+      .replace(/^pok[eé]mon(?:\s+tcg)?\s+/i, "")
+      .trim();
 
-    const candidates = await prisma.cardmarketProduct.findMany({
-      where: kind !== "OTHER" ? { kind: kind as never } : undefined,
+    let candidates = await prisma.cardmarketProduct.findMany({
+      where: {
+        ...(kind !== "OTHER" ? { kind: kind as never } : {}),
+        name: { contains: primaryLabel, mode: "insensitive" },
+      },
       select: { id: true, name: true },
-      take: 5000, // V1 : scan en mémoire — à remplacer par une recherche indexée si ça devient trop lent
+      take: 500,
     });
+
+    // Certains libellés Gemini sont trop descriptifs pour un `contains`.
+    // On retombe alors sur un échantillon du bon type, sans scanner 78k lignes.
+    if (candidates.length === 0) {
+      candidates = await prisma.cardmarketProduct.findMany({
+        where: kind !== "OTHER" ? { kind: kind as never } : undefined,
+        select: { id: true, name: true },
+        take: 5000,
+      });
+    }
 
     let best: { id: string; score: number } | null = null;
     for (const candidate of candidates) {
-      const score = jaccard(queryTokens, tokenize(candidate.name));
+      const candidateName = normalize(candidate.name);
+      const primaryName = normalize(primaryLabel);
+      const nameBonus =
+        primaryName.length >= 3 &&
+        (candidateName === primaryName || candidateName.startsWith(`${primaryName} `))
+          ? 0.3
+          : 0;
+      const score = Math.min(1, jaccard(queryTokens, tokenize(candidate.name)) + nameBonus);
       if (!best || score > best.score) best = { id: candidate.id, score };
     }
 
-    if (!best || best.score < minConfidence) return null;
+    // Le catalogue Cardmarket ne contient pas le numéro de carte. Pour une
+    // single, on exige donc une confiance supérieure afin d'éviter de prendre
+    // le prix d'une autre impression portant le même nom.
+    const requiredConfidence = item.productType === "CARD" ? Math.max(minConfidence, 0.55) : minConfidence;
+    if (!best || best.score < requiredConfidence) return null;
     return { cardmarketProductId: best.id, confidence: Math.round(best.score * 100) / 100 };
   }
 }

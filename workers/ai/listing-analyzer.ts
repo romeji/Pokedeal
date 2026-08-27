@@ -30,6 +30,7 @@ export class ListingAnalyzer {
     const listings = await prisma.listing.findMany({
       where: { status: "NEW" },
       include: { images: true },
+      orderBy: { lastSeenAt: "desc" },
       take: limit,
     });
 
@@ -46,6 +47,14 @@ export class ListingAnalyzer {
           continue;
         }
         if (!looksLikePokemon(listing.title, listing.description)) {
+          await prisma.listing.update({
+            where: { id: listing.id },
+            data: {
+              status: "FILTERED",
+              filterFlags: ["NOT_POKEMON"],
+              filterReason: "Le titre et la description ne semblent pas concerner Pokémon",
+            },
+          });
           ignored++;
           continue;
         }
@@ -138,7 +147,9 @@ export class ListingAnalyzer {
 
 // Exécution directe : npm run worker:listing-analyzer
 if (require.main === module) {
-  runJob("listing-analyzer", () => new ListingAnalyzer().runOnce())
+  const requestedLimit = Number(process.argv[2] ?? 20);
+  const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? requestedLimit : 20;
+  runJob("listing-analyzer", () => new ListingAnalyzer().runOnce(limit))
     .then((result) => {
       console.log(
         `Analyse terminée : ${result.analyzed} annonces analysées, ${result.ignored} ignorées (filtre texte), ${result.errors} erreurs.`

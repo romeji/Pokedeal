@@ -41,5 +41,12 @@ function normalize(text: string): string {
 
 export function looksLikePokemon(title: string, description?: string | null): boolean {
   const haystack = normalize(`${title} ${description ?? ""}`);
-  return POKEMON_KEYWORDS.some((kw) => haystack.includes(normalize(kw)));
+  if (POKEMON_KEYWORDS.some((kw) => haystack.includes(normalize(kw)))) return true;
+
+  // Beaucoup d'annonces ne contiennent que le nom de la carte :
+  // "Aquali-V 074/069" ou "Mienshao PAR 200 IR Full Art". Ces motifs TCG
+  // sont assez spécifiques pour ne pas bloquer ces vraies cartes avant Gemini.
+  const cardNumber = /\b\d{1,3}\s*\/\s*\d{1,3}\b/;
+  const tcgVocabulary = /\b(full art|alt art|illustration rare|special illustration|holo|reverse|vmax|vstar|par|sir|tg|ex|gx)\b/;
+  return cardNumber.test(haystack) || tcgVocabulary.test(haystack);
 }

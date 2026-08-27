@@ -5,7 +5,7 @@ Set-Location -LiteralPath $projectRoot
 
 $form = New-Object Windows.Forms.Form
 $form.Text = "PokéDeal · Centre de démarrage"
-$form.Size = New-Object Drawing.Size(760,680)
+$form.Size = New-Object Drawing.Size(760,805)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = [Drawing.Color]::FromArgb(10,17,27)
 $form.ForeColor = [Drawing.Color]::FromArgb(226,232,240)
@@ -23,13 +23,26 @@ $subtitle.Text = "Toutes les vérifications doivent être validées avant le lan
 $subtitle.ForeColor = [Drawing.Color]::FromArgb(148,163,184)
 $subtitle.SetBounds(34,72,680,28); $form.Controls.Add($subtitle)
 
-$checks = @("Node.js et npm","Fichier .env","Docker Desktop","PostgreSQL partagé","Migrations Prisma","Données de conformité","Tests automatiques","Qualité du code","Build de production")
+$checks = @("Node.js et npm","Fichier .env","Docker Desktop","PostgreSQL partagé","Migrations Prisma","Données de conformité","Fichiers Cardmarket à jour","Tests automatiques","Qualité du code","Build de production")
 $labels = @()
 for($i=0;$i -lt $checks.Count;$i++){ $label=New-Object Windows.Forms.Label; $label.Text="○  $($checks[$i])"; $label.BackColor=[Drawing.Color]::FromArgb(18,29,43); $label.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $label.Padding=New-Object Windows.Forms.Padding(14,9,8,8); $label.SetBounds(34,(112+$i*46),675,37); $form.Controls.Add($label); $labels += $label }
 
-$status = New-Object Windows.Forms.Label; $status.Text="Prêt pour la vérification."; $status.SetBounds(34,535,675,28); $form.Controls.Add($status)
-$verify = New-Object Windows.Forms.Button; $verify.Text="Vérifier l'application"; $verify.SetBounds(34,575,315,48); $verify.BackColor=[Drawing.Color]::FromArgb(34,211,238); $verify.ForeColor=[Drawing.Color]::FromArgb(8,15,24); $verify.FlatStyle="Flat"; $form.Controls.Add($verify)
-$start = New-Object Windows.Forms.Button; $start.Text="Démarrer PokéDeal"; $start.SetBounds(394,575,315,48); $start.Enabled=$false; $start.BackColor=[Drawing.Color]::FromArgb(30,41,59); $start.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $start.FlatStyle="Flat"; $form.Controls.Add($start)
+$status = New-Object Windows.Forms.Label; $status.Text="Prêt pour la vérification."; $status.SetBounds(34,580,675,28); $form.Controls.Add($status)
+$verify = New-Object Windows.Forms.Button; $verify.Text="Vérifier l'application"; $verify.SetBounds(34,620,315,48); $verify.BackColor=[Drawing.Color]::FromArgb(34,211,238); $verify.ForeColor=[Drawing.Color]::FromArgb(8,15,24); $verify.FlatStyle="Flat"; $form.Controls.Add($verify)
+$start = New-Object Windows.Forms.Button; $start.Text="Démarrer PokéDeal"; $start.SetBounds(394,620,315,48); $start.Enabled=$false; $start.BackColor=[Drawing.Color]::FromArgb(30,41,59); $start.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $start.FlatStyle="Flat"; $form.Controls.Add($start)
+$copyKey = New-Object Windows.Forms.Button; $copyKey.Text="Copier ma clé de connexion PWA"; $copyKey.SetBounds(34,682,675,38); $copyKey.BackColor=[Drawing.Color]::FromArgb(18,29,43); $copyKey.ForeColor=[Drawing.Color]::FromArgb(165,243,252); $copyKey.FlatStyle="Flat"; $form.Controls.Add($copyKey)
+
+$copyKey.Add_Click({
+  try {
+    $line=Get-Content -LiteralPath (Join-Path $projectRoot '.env') | Where-Object { $_ -match '^ADMIN_TOKEN=' } | Select-Object -First 1
+    if(!$line){throw 'ADMIN_TOKEN absent. Lance d’abord Vérifier l’application.'}
+    $value=(($line -split '=',2)[1]).Trim().Trim('"')
+    [Windows.Forms.Clipboard]::SetText($value)
+    $status.Text='Clé PWA copiée. Colle-la dans Prix & favoris → Connexion.'
+  } catch {
+    $status.Text=$_.Exception.Message
+  }
+})
 
 function Invoke-Check([int]$index,[scriptblock]$action){$labels[$index].Text="…  $($checks[$index])";[Windows.Forms.Application]::DoEvents();try{& $action;if($LASTEXITCODE -ne 0){throw "Code $LASTEXITCODE"};$labels[$index].Text="✓  $($checks[$index])";$labels[$index].ForeColor=[Drawing.Color]::FromArgb(110,231,183);return $true}catch{$labels[$index].Text="✗  $($checks[$index])";$labels[$index].ForeColor=[Drawing.Color]::FromArgb(251,113,133);$status.Text="$($checks[$index]) : $($_.Exception.Message)";return $false}}
 
@@ -42,6 +55,7 @@ $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="V�
     {npm run realtime:up | Out-Null; npm run db:check | Out-Null},
     {npx prisma migrate deploy | Out-Null},
     {npm run prisma:seed | Out-Null},
+    {npm run cardmarket:ensure-current | Out-Null},
     {npm test | Out-Null},
     {npm run lint | Out-Null},
     {npm run build | Out-Null}
@@ -50,7 +64,13 @@ $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="V�
 })
 $start.Add_Click({
   $start.Enabled=$false
-  & (Join-Path $PSScriptRoot 'StartPokedealServices.ps1')
+  try {
+    & (Join-Path $PSScriptRoot 'StartPokedealServices.ps1')
+  } catch {
+    $status.Text=$_.Exception.Message
+    $start.Enabled=$true
+    return
+  }
   $status.Text="Démarrage… attente du serveur local."
   $script:launchAttempts=0
   $script:launchTimer=New-Object Windows.Forms.Timer

@@ -30,6 +30,10 @@ export class OpportunityScoringWorker {
     for (const listing of listings) {
       try {
         if (listing.matches.length === 0) {
+          await prisma.listing.update({
+            where: { id: listing.id },
+            data: { status: "NO_MATCH", filterReason: "Aucun produit Cardmarket suffisamment fiable" },
+          });
           skipped++;
           continue;
         }
@@ -41,6 +45,10 @@ export class OpportunityScoringWorker {
 
         const calculation = await this.opportunityEngine.calculate(Number(listing.price), matchedItems);
         if (!calculation) {
+          await prisma.listing.update({
+            where: { id: listing.id },
+            data: { status: "PRICE_UNAVAILABLE", filterReason: "Prix Cardmarket indisponible" },
+          });
           skipped++;
           continue;
         }

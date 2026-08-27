@@ -17,16 +17,24 @@ export default async function AdminSystemPage() {
   let opportunityCount = 0;
   let discordCount = 0;
   let telegramCount = 0;
+  let latestPriceAt: Date | null = null;
+  let listingStatuses: Array<{ status: string; _count: { _all: number } }> = [];
   let databaseError: string | null = null;
 
   try {
-    [compliance, recentRuns, listingCount, opportunityCount, discordCount, telegramCount] = await Promise.all([
+    const latestPrice = prisma.priceSnapshot.findFirst({
+      orderBy: { retrievedAt: "desc" },
+      select: { retrievedAt: true },
+    });
+    [compliance, recentRuns, listingCount, opportunityCount, discordCount, telegramCount, latestPriceAt, listingStatuses] = await Promise.all([
       prisma.providerComplianceReview.findMany({ orderBy: { provider: "asc" } }),
       prisma.workerRun.findMany({ orderBy: { startedAt: "desc" }, take: 30 }),
       prisma.listing.count(),
       prisma.opportunity.count(),
       prisma.discordNotification.count({ where: { channel: "discord", success: true } }),
       prisma.discordNotification.count({ where: { channel: "telegram", success: true } }),
+      latestPrice.then((price) => price?.retrievedAt ?? null),
+      prisma.listing.groupBy({ by: ["status"], _count: { _all: true } }),
     ]);
   } catch {
     databaseError = process.env.DATABASE_URL
@@ -35,6 +43,11 @@ export default async function AdminSystemPage() {
   }
 
   const jobNames = [...new Set(recentRuns.map((r) => r.jobName))];
+  const maxPriceAgeHours = Number(process.env.CARDMARKET_MAX_PRICE_AGE_HOURS ?? 36);
+  const priceAgeHours = latestPriceAt
+    ? (Date.now() - latestPriceAt.getTime()) / 3_600_000
+    : null;
+  const priceIsFresh = priceAgeHours !== null && priceAgeHours <= maxPriceAgeHours;
 
   return (
     <main className="min-h-screen px-6 py-8 md:px-10">
@@ -66,6 +79,48 @@ export default async function AdminSystemPage() {
         <div className="rounded-card border border-base-700 bg-base-900 p-4">
           <div className="font-mono text-xl">{discordCount} / {telegramCount}</div>
           <div className="text-xs text-slate-400">Notifications Discord / Telegram</div>
+        </div>
+      </section>
+
+      <section className="mb-8 grid gap-4 md:grid-cols-3">
+        <div className="rounded-card border border-base-700 bg-base-900 p-4">
+          <div className={priceIsFresh ? "text-market-profit" : "text-market-loss"}>
+            {priceIsFresh ? "✓ Price Guide à jour" : "✗ Price Guide trop ancien"}
+          </div>
+          <div className="mt-1 text-xs text-slate-400">
+            {latestPriceAt
+              ? `${latestPriceAt.toLocaleString("fr-FR")} · ${priceAgeHours?.toFixed(1)} h`
+              : "Aucun prix importé"}
+          </div>
+        </div>
+        <div className="rounded-card border border-base-700 bg-base-900 p-4">
+          <div className={process.env.GEMINI_API_KEY ? "text-market-profit" : "text-market-loss"}>
+            {process.env.GEMINI_API_KEY ? "✓ Gemini configuré" : "✗ Clé Gemini absente"}
+          </div>
+          <div className="mt-1 text-xs text-slate-400">
+            {process.env.GEMINI_MODEL || "gemini-3.5-flash-lite (défaut)"}
+          </div>
+        </div>
+        <div className="rounded-card border border-base-700 bg-base-900 p-4">
+          <div className={process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID ? "text-market-profit" : "text-market-loss"}>
+            {process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
+              ? "✓ Telegram configuré"
+              : "✗ Telegram incomplet"}
+          </div>
+          <div className="mt-1 text-xs text-slate-400">{telegramCount} alerte(s) envoyée(s)</div>
+        </div>
+      </section>
+
+      <section className="mb-8 rounded-card border border-base-700 bg-base-900 p-5">
+        <h2 className="mb-4 font-display text-sm font-semibold uppercase tracking-wide text-slate-300">
+          File des annonces
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {listingStatuses.map((entry) => (
+            <span key={entry.status} className="rounded-full border border-base-700 px-3 py-1 text-sm">
+              {entry.status} · {entry._count._all}
+            </span>
+          ))}
         </div>
       </section>
 

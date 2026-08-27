@@ -1,7 +1,7 @@
 # Pokémon Deal Scanner
 
 Surveillance des annonces Pokémon sur Vinted, identification par vision, comparaison
-avec Cardmarket, calcul du profit/ROI, et alerte Discord automatique.
+avec Cardmarket, calcul du profit/ROI, et alertes Discord/Telegram automatiques.
 
 La procédure pour partager les données entre les workers locaux, la PWA et
 Vercel est documentée dans [`docs/DATABASE-CLOUD.md`](docs/DATABASE-CLOUD.md).
@@ -30,7 +30,7 @@ Vercel est documentée dans [`docs/DATABASE-CLOUD.md`](docs/DATABASE-CLOUD.md).
       pas assez d'imports espacés dans le temps. `sampleSize` reste `null`
       (non fourni par le Price Guide, jamais inventé).
 - [x] **Phase 4 — Gemini Vision + Product Matcher** : `GeminiVisionProvider`
-      réel (endpoint REST `generateContent` + `responseSchema` JSON
+      réel (endpoint REST `generateContent` + `responseJsonSchema` JSON
       structuré, documentation officielle Google). Filtre texte bon marché
       avant tout appel (`lib/ai/pokemonFilter.ts`, section 9). Cache par
       hash d'image dans `ListingImage.visionResultRaw` (jamais ré-analysée
@@ -38,9 +38,9 @@ Vercel est documentée dans [`docs/DATABASE-CLOUD.md`](docs/DATABASE-CLOUD.md).
       identifié à un `CardmarketProduct` par similarité de nom (Jaccard sur
       tokens) — pas de service payant, matching honnêtement approximatif
       pour la V1. `workers/ai/listing-analyzer.ts` orchestre tout le
-      pipeline. **Point ouvert** : le nom exact du modèle Gemini "gratuit"
-      change souvent en 2026 — `GEMINI_MODEL` est obligatoire, sans valeur
-      par défaut, à vérifier dans Google AI Studio avant de lancer.
+      pipeline. `GEMINI_MODEL` reste configurable et utilise par défaut le
+      modèle stable `gemini-3.5-flash-lite` ; la disponibilité et les quotas
+      doivent toujours être vérifiés dans Google AI Studio.
 - [x] **Phase 5 — Opportunity Engine** : `OpportunityEngine` (sections
       12-13) calcule optimiste/probable/prudente pour les lots (jamais de
       somme aveugle des valeurs max), profit et ROI avec frais
@@ -114,6 +114,11 @@ Les tâches de fond permanentes ne tournent pas dans une fonction Vercel : ce
 worker s'exécute sur le PC via le lanceur et écrit dans la base indiquée par
 `DATABASE_URL`.
 
+Avant de démarrer les services, le lanceur exécute aussi
+`npm run cardmarket:ensure-current`. Ce contrôle resynchronise les exports puis
+refuse de démarrer si le guide de prix est absent ou plus ancien que 36 heures
+(réglable avec `CARDMARKET_MAX_PRICE_AGE_HOURS`).
+
 ### Import manuel de secours
 
 Place les fichiers téléchargés depuis les pages `/Data/*` du jeu Pokémon
@@ -134,8 +139,8 @@ localement plutôt que de deviner leurs attributs.
   disponible pour les tests isolés.
 - Les importeurs Cardmarket lisent les exports JSON locaux fournis ; ils
   n'inventent aucun endpoint et n'utilisent pas de nouvelle clé API.
-- `GeminiVisionProvider.analyzeImages` est implémenté, mais nécessite
-  `GEMINI_API_KEY` et `GEMINI_MODEL` dans `.env`.
+- `GeminiVisionProvider.analyzeImages` est implémenté et nécessite
+  `GEMINI_API_KEY` dans `.env` ; `GEMINI_MODEL` est optionnel.
 - Le dashboard et la bibliothèque affichent les données Prisma réelles.
 
 ## Telegram
@@ -154,6 +159,9 @@ présentes. Les secrets doivent rester dans `.env`, jamais dans
 - `/dashboard` affiche les données Prisma réelles.
 - `/library` conserve uniquement les opportunités à profit positif dont
   l'annonce n'est pas `SOLD`, `REMOVED` ou `EXPIRED`.
+- `/items` recherche le catalogue Cardmarket et ses derniers prix, affiche la
+  photo disponible et permet de gérer une liste de favoris partagée. Le bouton
+  du lanceur copie la clé `ADMIN_TOKEN` à coller une fois dans la PWA.
 - `/admin/imports` importe les exports JSON Cardmarket par lots adaptés aux
   limites Vercel. L'accès exige `ADMIN_TOKEN`.
 - `/admin/filters` gère les expressions personnalisées de rejet, de revue ou
