@@ -1,16 +1,18 @@
 import { BinderType, ProductKind } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin/auth";
+import { getRequestUser } from "@/lib/auth/user";
 import { entryUnitValue } from "@/lib/collections/valuation";
 import { prisma } from "@/lib/database/prisma";
 import { assetImage, getSet } from "@/lib/tcgdex/client";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
-  const binder = await prisma.collectorBinder.findUnique({
-    where: { id: params.id },
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const { id } = await params;
+  const binder = await prisma.collectorBinder.findFirst({
+    where: { id, userId: user.id },
     include: {
       entries: {
         orderBy: { createdAt: "desc" },

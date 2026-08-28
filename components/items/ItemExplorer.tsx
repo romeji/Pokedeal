@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 
 type Item = {
   id: string;
@@ -17,6 +18,7 @@ type Item = {
     retrievedAt: string;
   } | null;
   favorite: boolean;
+  priceSource: string | null;
 };
 
 export function ItemExplorer() {
@@ -28,11 +30,12 @@ export function ItemExplorer() {
   const [showLogin, setShowLogin] = useState(false);
   const [token, setToken] = useState("");
   const [message, setMessage] = useState("");
+  const [googleConfigured, setGoogleConfigured] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/session")
       .then((response) => response.json())
-      .then((data: { authenticated?: boolean }) => setAuthenticated(Boolean(data.authenticated)))
+      .then((data: { authenticated?: boolean; googleAuthConfigured?: boolean }) => { setAuthenticated(Boolean(data.authenticated)); setGoogleConfigured(Boolean(data.googleAuthConfigured)); })
       .catch(() => undefined);
   }, []);
 
@@ -134,7 +137,7 @@ export function ItemExplorer() {
         </div>
 
         {showLogin && !authenticated && (
-          <form onSubmit={login} className="mt-4 flex flex-col gap-3 md:flex-row">
+          <div className="mt-4 rounded-2xl border border-white/5 bg-slate-950/30 p-4"><button disabled={!googleConfigured} className="button-primary h-11 w-full" onClick={() => signIn("google", { callbackUrl: "/items" })}>{googleConfigured ? "G  Continuer avec Google" : "Connexion Google à configurer"}</button><form onSubmit={login} className="mt-3 flex flex-col gap-3 md:flex-row">
             <input
               className="input min-w-0 flex-1"
               type="password"
@@ -145,7 +148,7 @@ export function ItemExplorer() {
               required
             />
             <button className="button-primary" type="submit">Se connecter</button>
-          </form>
+          </form></div>
         )}
         {message && <p className="mt-3 text-sm text-cyan-200">{message}</p>}
       </div>
@@ -157,7 +160,7 @@ export function ItemExplorer() {
               {item.imageUrl ? (
                 // Les images proviennent du catalogue enrichi ou d'une annonce Vinted déjà analysée.
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                <img src={item.imageUrl} alt={item.name} className="h-full w-full object-contain p-3" />
               ) : (
                 <div className="flex h-full items-center justify-center text-6xl opacity-50">◓</div>
               )}
@@ -188,7 +191,7 @@ export function ItemExplorer() {
                     <strong className="block text-lg">{euro(item.price.low)}</strong>
                   </div>
                   <p className="col-span-2 text-xs text-slate-500">
-                    Guide du {new Date(item.price.retrievedAt).toLocaleDateString("fr-FR")}
+                    {item.priceSource} · mis à jour le {new Date(item.price.retrievedAt).toLocaleDateString("fr-FR")}
                   </p>
                 </div>
               ) : (

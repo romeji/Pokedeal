@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin/auth";
+import { getRequestUser } from "@/lib/auth/user";
 import { recordBinderSnapshot } from "@/lib/collections/valuation";
 import { recordCollectionActivity } from "@/lib/collections/activity";
 import { prisma } from "@/lib/database/prisma";
 import { assetImage, getCard } from "@/lib/tcgdex/client";
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const { id } = await params;
   const body = (await request.json()) as {
     kind?: "CARD" | "ITEM";
     cardId?: string;
@@ -16,7 +18,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     quantity?: number;
     purchasePrice?: number | null;
   };
-  const binder = await prisma.collectorBinder.findUnique({ where: { id: params.id }, select: { id: true } });
+  const binder = await prisma.collectorBinder.findFirst({ where: { id, userId: user.id }, select: { id: true } });
   if (!binder) return NextResponse.json({ error: "Classeur introuvable" }, { status: 404 });
   const variant = body.variant?.slice(0, 32) || "normal";
   const condition = body.condition?.slice(0, 16) || "NM";
@@ -74,11 +76,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   return NextResponse.json(entry, { status: 201 });
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const { id } = await params;
   const body = (await request.json()) as Record<string, unknown>;
   const entryId = String(body.entryId ?? "");
-  const current = await prisma.collectionEntry.findFirst({ where: { id: entryId, binderId: params.id } });
+  const current = await prisma.collectionEntry.findFirst({ where: { id: entryId, binderId: id, binder: { userId: user.id } } });
   if (!current) return NextResponse.json({ error: "Objet introuvable" }, { status: 404 });
   const positiveInt = (value: unknown, maximum: number) => {
     const parsed = Number(value);
@@ -107,23 +111,27 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       column: positiveInt(body.column, 99),
     },
   });
-  await recordCollectionActivity(params.id, "ENTRY_UPDATED", entry.name, { quantity: entry.quantity, condition: entry.condition });
-  await recordBinderSnapshot(params.id);
+  await recordCollectionActivity(id, "ENTRY_UPDATED", entry.name, { quantity: entry.quantity, condition: entry.condition });
+  await recordBinderSnapshot(id);
   return NextResponse.json(entry);
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const { id } = await params;
+  const binder = await prisma.collectorBinder.findFirst({ where: { id, userId: user.id }, select: { id: true } });
+  if (!binder) return NextResponse.json({ error: "Classeur introuvable" }, { status: 404 });
   const entryId = new URL(request.url).searchParams.get("entryId");
   const externalId = new URL(request.url).searchParams.get("externalId");
   if (!entryId && !externalId) return NextResponse.json({ error: "Entrée requise" }, { status: 400 });
   const entries = await prisma.collectionEntry.findMany({
-    where: { binderId: params.id, ...(entryId ? { id: entryId } : { externalId: externalId! }) }, select: { name: true },
+    where: { binderId: id, ...(entryId ? { id: entryId } : { externalId: externalId! }) }, select: { name: true },
   });
   await prisma.collectionEntry.deleteMany({
-    where: { binderId: params.id, ...(entryId ? { id: entryId } : { externalId: externalId! }) },
+    where: { binderId: id, ...(entryId ? { id: entryId } : { externalId: externalId! }) },
   });
-  await Promise.all(entries.map((entry) => recordCollectionActivity(params.id, "ENTRY_REMOVED", entry.name)));
-  await recordBinderSnapshot(params.id);
+  await Promise.all(entries.map((entry) => recordCollectionActivity(id, "ENTRY_REMOVED", entry.name)));
+  await recordBinderSnapshot(id);
   return NextResponse.json({ deleted: true });
 }

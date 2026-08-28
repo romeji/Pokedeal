@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/database/prisma";
 import type { IdentifiedItem } from "@/lib/ai/types";
+import { searchCardsDetailed } from "@/lib/tcgdex/client";
 
 /**
  * ProductMatcher (section 11) — associe un IdentifiedItem (sortie Gemini)
@@ -68,6 +69,25 @@ export class ProductMatcher {
       .replace(/^pok[eé]mon(?:\s+tcg)?\s+/i, "")
       .trim();
 
+    // Une carte existe dans de nombreuses impressions à des prix très différents.
+    // Sans numéro + série, un nom seul n'est jamais assez sûr pour une alerte.
+    if (item.productType === "CARD") {
+      if (!item.number || (!item.setCode && !item.setName)) return null;
+      const cards = await searchCardsDetailed(primaryLabel, 40);
+      const wantedNumber = normalizeCardNumber(item.number);
+      const wantedSet = normalize(item.setCode ?? item.setName ?? "");
+      const exact = cards.find((card) => {
+        if (normalizeCardNumber(card.localId) !== wantedNumber) return false;
+        const cardSet = normalize(`${card.set.id} ${card.set.name}`);
+        return wantedSet.split(" ").filter((token) => token.length > 1).every((token) => cardSet.includes(token));
+      });
+      const idProduct = exact?.pricing?.cardmarket?.idProduct;
+      if (!idProduct) return null;
+      const product = await prisma.cardmarketProduct.findUnique({ where: { cardmarketProductId: idProduct }, select: { id: true } });
+      if (!product) return null;
+      return { cardmarketProductId: product.id, confidence: Math.round(Math.min(0.98, item.confidenceScore) * 100) / 100 };
+    }
+
     let candidates = await prisma.cardmarketProduct.findMany({
       where: {
         ...(kind !== "OTHER" ? { kind: kind as never } : {}),
@@ -103,8 +123,13 @@ export class ProductMatcher {
     // Le catalogue Cardmarket ne contient pas le numéro de carte. Pour une
     // single, on exige donc une confiance supérieure afin d'éviter de prendre
     // le prix d'une autre impression portant le même nom.
-    const requiredConfidence = item.productType === "CARD" ? Math.max(minConfidence, 0.55) : minConfidence;
+    const requiredConfidence = Math.max(minConfidence, 0.6);
     if (!best || best.score < requiredConfidence) return null;
-    return { cardmarketProductId: best.id, confidence: Math.round(best.score * 100) / 100 };
+    return { cardmarketProductId: best.id, confidence: Math.round(Math.min(best.score, item.confidenceScore) * 100) / 100 };
   }
+}
+
+function normalizeCardNumber(value: string) {
+  const first = value.split("/")[0]?.replace(/\D/g, "") ?? "";
+  return String(Number(first || "0"));
 }

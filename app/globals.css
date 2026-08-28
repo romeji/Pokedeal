@@ -37,7 +37,19 @@ body::before {
   .button-primary { @apply rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-2 font-semibold text-slate-950 shadow-lg shadow-cyan-950/40 disabled:opacity-50; }
   .button-secondary { @apply rounded-xl border border-white/10 bg-slate-900/60 px-4 py-2 font-semibold text-slate-200 shadow-lg shadow-black/20 backdrop-blur-xl transition hover:border-cyan-300/30 hover:bg-slate-800/80 disabled:opacity-50; }
   .input { @apply rounded-xl border border-slate-600/40 bg-slate-950/60 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400; }
+  .account-pill { @apply flex h-10 items-center gap-2 rounded-full border border-white/10 bg-slate-950/60 px-2 pr-3 text-xs font-semibold text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100; }
+  .account-avatar { @apply grid h-7 w-7 place-items-center rounded-full bg-white text-xs font-bold text-blue-600; }
 }
+
+.mobile-header { position: sticky; top: .5rem; z-index: 40; margin: .5rem; min-height: 3.6rem; align-items: center; justify-content: space-between; border: 1px solid rgba(255,255,255,.1); border-radius: 1.25rem; padding: .65rem .8rem .65rem 1rem; background: rgba(8,13,22,.78); backdrop-filter: blur(24px); box-shadow: 0 14px 50px rgba(0,0,0,.3); }
+.mobile-header { display: flex; }
+.mobile-dock { position: fixed; z-index: 50; left: max(.65rem, env(safe-area-inset-left)); right: max(.65rem, env(safe-area-inset-right)); bottom: max(.65rem, env(safe-area-inset-bottom)); height: 4.25rem; align-items: center; justify-content: space-around; border: 1px solid rgba(255,255,255,.12); border-radius: 1.4rem; padding: .3rem; background: rgba(8,13,22,.88); backdrop-filter: blur(28px); box-shadow: 0 20px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06); }
+.mobile-dock { display: flex; }
+.mobile-dock-link { display: flex; min-width: 3.5rem; height: 3.5rem; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; border-radius: 1rem; color: #64748b; transition: .2s; }
+.mobile-dock-link span { font-size: 1.15rem; line-height: 1; }
+.mobile-dock-link small { font-size: .61rem; font-weight: 600; }
+.mobile-dock-link.active { color: #cffafe; background: linear-gradient(145deg, rgba(34,211,238,.16), rgba(59,130,246,.12)); box-shadow: inset 0 0 0 1px rgba(103,232,249,.12); }
+@media (min-width: 768px) { .mobile-header, .mobile-dock { display: none; } }
 
 .collection-stage {
   position: relative;

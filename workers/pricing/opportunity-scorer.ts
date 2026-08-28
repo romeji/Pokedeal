@@ -38,10 +38,15 @@ export class OpportunityScoringWorker {
           continue;
         }
 
-        const matchedItems: MatchedItem[] = listing.matches.map((m) => ({
+        const matchedItems: MatchedItem[] = listing.matches.filter((match) => match.confidence >= 0.65).map((m) => ({
           cardmarketProductId: m.productId,
           matchConfidence: m.confidence,
         }));
+        if (matchedItems.length === 0) {
+          await prisma.listing.update({ where: { id: listing.id }, data: { status: "REVIEW_REQUIRED", filterReason: "Association produit trop incertaine pour une cotation" } });
+          skipped++;
+          continue;
+        }
 
         const calculation = await this.opportunityEngine.calculate(Number(listing.price), matchedItems);
         if (!calculation) {

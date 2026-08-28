@@ -41,10 +41,11 @@ export class OpportunityEngine {
    * pour un lot).
    */
   async calculate(purchasePrice: number, items: MatchedItem[]): Promise<OpportunityCalculation | null> {
-    if (items.length === 0) return null;
+    const uniqueItems = [...new Map(items.map((item) => [item.cardmarketProductId, item])).values()];
+    if (uniqueItems.length === 0) return null;
 
     const ranges = await Promise.all(
-      items.map((item) => this.priceEngine.getMarketValueRange(item.cardmarketProductId))
+      uniqueItems.map((item) => this.priceEngine.getMarketValueRange(item.cardmarketProductId))
     );
 
     // On ignore les éléments sans prix connu plutôt que de deviner une valeur.

@@ -1,6 +1,6 @@
 import { BinderType, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin/auth";
+import { getRequestUser } from "@/lib/auth/user";
 import { recordCollectionActivity } from "@/lib/collections/activity";
 import { recordBinderSnapshot } from "@/lib/collections/valuation";
 import { prisma } from "@/lib/database/prisma";
@@ -21,8 +21,10 @@ function csvCell(value: unknown) {
 }
 
 export async function GET(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
   const binders = await prisma.collectorBinder.findMany({
+    where: { userId: user.id },
     orderBy: { createdAt: "asc" },
     include: { entries: { select: entryFields, orderBy: { createdAt: "asc" } } },
   });
@@ -70,7 +72,8 @@ function optionalInt(value: unknown, maximum = 9999) {
 }
 
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
   const backup = (await request.json()) as { format?: string; version?: number; binders?: BackupBinder[] };
   if (backup.format !== "pokedeal-collection" || backup.version !== 1 || !Array.isArray(backup.binders) || backup.binders.length > 100) {
     return NextResponse.json({ error: "Sauvegarde PokéDeal invalide" }, { status: 400 });
@@ -81,6 +84,7 @@ export async function POST(request: Request) {
     if (!rawBinder.name || !Object.values(BinderType).includes(rawBinder.type as BinderType)) continue;
     const binder = await prisma.collectorBinder.create({
       data: {
+        userId: user.id,
         name: `${String(rawBinder.name).slice(0, 120)} · restauré`,
         description: rawBinder.description ? String(rawBinder.description).slice(0, 500) : null,
         type: rawBinder.type as BinderType,

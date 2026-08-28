@@ -5,6 +5,7 @@ avec Cardmarket, calcul du profit/ROI, et alertes Discord/Telegram automatiques.
 
 La procédure pour partager les données entre les workers locaux, la PWA et
 Vercel est documentée dans [`docs/DATABASE-CLOUD.md`](docs/DATABASE-CLOUD.md).
+La connexion Google est détaillée dans [`docs/GOOGLE-AUTH.md`](docs/GOOGLE-AUTH.md).
 
 ## État d'avancement
 
@@ -34,11 +35,12 @@ Vercel est documentée dans [`docs/DATABASE-CLOUD.md`](docs/DATABASE-CLOUD.md).
       structuré, documentation officielle Google). Filtre texte bon marché
       avant tout appel (`lib/ai/pokemonFilter.ts`, section 9). Cache par
       hash d'image dans `ListingImage.visionResultRaw` (jamais ré-analysée
-      deux fois). `ProductMatcher` (section 11) associe chaque item
-      identifié à un `CardmarketProduct` par similarité de nom (Jaccard sur
-      tokens) — pas de service payant, matching honnêtement approximatif
-      pour la V1. `workers/ai/listing-analyzer.ts` orchestre tout le
-      pipeline. `GEMINI_MODEL` reste configurable et utilise par défaut le
+      deux fois). Pour une carte, `ProductMatcher` exige désormais un numéro
+      et un set compatibles avec TCGdex/Cardmarket ; il préfère refuser une
+      cotation plutôt que sélectionner une autre impression au nom similaire.
+      Les produits scellés gardent un rapprochement textuel avec un seuil
+      renforcé. `workers/ai/listing-analyzer.ts` orchestre tout le pipeline.
+      `GEMINI_MODEL` reste configurable et utilise par défaut le
       modèle stable `gemini-3.5-flash-lite` ; la disponibilité et les quotas
       doivent toujours être vérifiés dans Google AI Studio.
 - [x] **Phase 5 — Opportunity Engine** : `OpportunityEngine` (sections
@@ -157,7 +159,7 @@ présentes. Les secrets doivent rester dans `.env`, jamais dans
 ## Interface, imports et filtres
 
 - `/dashboard` affiche les données Prisma réelles.
-- `/collection` gère plusieurs classeurs : collection globale, classeur libre,
+- `/collection` gère, par compte, plusieurs classeurs : collection globale, classeur libre,
   master set cartes et master set items. Les checklists et visuels HD viennent
   de TCGdex ; les cotations sont reliées aux identifiants Cardmarket disponibles.
 - La Collection exporte un CSV, télécharge/restaure une sauvegarde JSON
@@ -166,8 +168,8 @@ présentes. Les secrets doivent rester dans `.env`, jamais dans
   certification, notes et emplacement physique.
 - `/library` conserve uniquement les opportunités à profit positif dont
   l'annonce n'est pas `SOLD`, `REMOVED` ou `EXPIRED`.
-- `/items` recherche le catalogue Cardmarket et ses derniers prix, affiche la
-  photo disponible et permet de gérer une liste de favoris partagée. Le bouton
+- `/items` recherche en français ou anglais le catalogue Cardmarket enrichi par
+  TCGdex, récupère les photos détaillées et gère les favoris privés du compte. Le bouton
   du lanceur copie la clé `ADMIN_TOKEN` à coller une fois dans la PWA.
 - `/admin/imports` importe les exports JSON Cardmarket par lots adaptés aux
   limites Vercel. L'accès exige `ADMIN_TOKEN`.
@@ -187,6 +189,19 @@ continu. `VINTRACK_INGEST_TOKEN` protège les routes internes et est généré
 localement au premier prévol. Sur Vercel, le dashboard reste le plan de
 contrôle ; le worker Go doit tourner sur le PC ou un hôte Docker permanent.
 Voir `services/vintrack-bridge/NOTICE.md` pour l'attribution Vintrack MIT.
+Les fonctions amont réutilisables et leur ordre de priorité sont inventoriés
+dans [`docs/VINTRACK-UPSTREAM-AUDIT.md`](docs/VINTRACK-UPSTREAM-AUDIT.md).
+
+## Connexion et données personnelles
+
+Auth.js permet la connexion Google. Les favoris et classeurs sont rattachés à
+l'utilisateur connecté ; leur valeur individuelle et le total du portefeuille
+sont donc identiques sur la PWA et Vercel. L'ancienne clé administrateur reste
+un accès local de secours au compte propriétaire.
+
+Variables nécessaires sur Vercel : `AUTH_SECRET`, `AUTH_GOOGLE_ID` et
+`AUTH_GOOGLE_SECRET`. Le bouton Google reste volontairement désactivé tant
+qu'elles ne sont pas toutes présentes.
 
 ## Vercel
 

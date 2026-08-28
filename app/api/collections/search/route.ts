@@ -1,19 +1,26 @@
 import { ProductKind } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin/auth";
+import { getRequestUser } from "@/lib/auth/user";
 import { prisma } from "@/lib/database/prisma";
-import { assetImage, searchCards } from "@/lib/tcgdex/client";
+import { assetImage, searchCardsDetailed } from "@/lib/tcgdex/client";
 
 export async function GET(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  if (!await getRequestUser(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
   const url = new URL(request.url);
   const query = url.searchParams.get("q")?.trim() ?? "";
   const kind = url.searchParams.get("kind") === "ITEM" ? "ITEM" : "CARD";
   if (query.length < 2) return NextResponse.json([]);
 
   if (kind === "CARD") {
-    const cards = await searchCards(query, "fr");
-    return NextResponse.json(cards.slice(0, 36).map((card) => ({ ...card, imageUrl: assetImage(card.image) })));
+    const cards = await searchCardsDetailed(query, 30);
+    return NextResponse.json(cards.map((card) => ({
+      ...card,
+      imageUrl: assetImage(card.image),
+      setName: card.set.name,
+      price: card.pricing?.cardmarket?.trend ?? card.pricing?.cardmarket?.avg ?? card.pricing?.cardmarket?.low ?? null,
+      priceSource: card.pricing?.cardmarket ? "Cardmarket via TCGdex" : null,
+      priceUpdatedAt: card.pricing?.cardmarket?.updated ?? null,
+    })));
   }
 
   const products = await prisma.cardmarketProduct.findMany({

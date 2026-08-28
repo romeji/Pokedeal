@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { signIn } from "next-auth/react";
 
 type BinderType = "GLOBAL" | "CUSTOM" | "MASTER_CARDS" | "MASTER_ITEMS";
 type Binder = {
@@ -45,6 +46,7 @@ export function CollectionStudio() {
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [googleConfigured, setGoogleConfigured] = useState(false);
   const restoreInput = useRef<HTMLInputElement>(null);
 
   async function loadBinders(preferredId?: string) {
@@ -66,7 +68,8 @@ export function CollectionStudio() {
   useEffect(() => {
     fetch("/api/admin/session")
       .then((response) => response.json())
-      .then(async (data: { authenticated?: boolean }) => {
+      .then(async (data: { authenticated?: boolean; googleAuthConfigured?: boolean }) => {
+        setGoogleConfigured(Boolean(data.googleAuthConfigured));
         const valid = Boolean(data.authenticated);
         setAuthenticated(valid);
         if (valid) await loadBinders();
@@ -115,7 +118,7 @@ export function CollectionStudio() {
   }
 
   if (authenticated === null) return <CollectionSkeleton />;
-  if (!authenticated) return <CollectionLogin token={token} setToken={setToken} login={login} busy={busy} message={message} />;
+  if (!authenticated) return <CollectionLogin token={token} setToken={setToken} login={login} busy={busy} message={message} googleConfigured={googleConfigured} />;
 
   const portfolioValue = binders.reduce((sum, binder) => sum + binder.value, 0);
   const itemCount = binders.reduce((sum, binder) => sum + binder.totalItems, 0);
@@ -331,6 +334,6 @@ function HeroMetric({ label, value, detail, tone }: { label: string; value: stri
 function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return <button className={`workspace-tab ${active ? "active" : ""}`} onClick={onClick}>{children}</button>; }
 function EmptyCollection({ onCreate }: { onCreate: () => void }) { return <button onClick={onCreate} className="surface group w-full overflow-hidden p-12 text-center"><span className="mx-auto grid h-20 w-20 place-items-center rounded-3xl border border-cyan-300/20 bg-cyan-400/5 text-4xl text-cyan-300 transition group-hover:scale-110">＋</span><h3 className="mt-5 font-display text-2xl font-bold">Crée ton premier univers</h3><p className="mt-2 text-slate-500">Master set complet, objets scellés ou classeur totalement libre.</p></button>; }
 function CollectionSkeleton() { return <main className="collection-stage min-h-screen p-10"><div className="h-8 w-40 animate-pulse rounded-full bg-slate-800" /><div className="mt-6 h-20 max-w-3xl animate-pulse rounded-3xl bg-slate-800/70" /></main>; }
-function CollectionLogin({ token, setToken, login, busy, message }: { token: string; setToken: (value: string) => void; login: (event: FormEvent) => Promise<void>; busy: boolean; message: string }) { return <main className="collection-stage grid min-h-screen place-items-center p-5"><form onSubmit={login} className="modal-orbit w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 text-center backdrop-blur-2xl"><span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-cyan-300/10 text-3xl">✦</span><p className="eyebrow mt-6">Espace privé</p><h1 className="mt-2 font-display text-3xl font-bold">Ta collection t’attend.</h1><p className="mt-3 text-sm text-slate-500">Colle la clé copiée depuis le lanceur PokéDeal.</p><input autoFocus type="password" className="input mt-7 h-12 w-full text-center" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Clé de connexion PWA" required />{message && <p className="mt-3 text-sm text-rose-300">{message}</p>}<button disabled={busy} className="button-primary mt-4 h-12 w-full">{busy ? "Connexion…" : "Entrer dans ma collection"}</button></form></main>; }
+function CollectionLogin({ token, setToken, login, busy, message, googleConfigured }: { token: string; setToken: (value: string) => void; login: (event: FormEvent) => Promise<void>; busy: boolean; message: string; googleConfigured: boolean }) { return <main className="collection-stage grid min-h-[80vh] place-items-center p-5"><div className="modal-orbit w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 text-center backdrop-blur-2xl"><span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-cyan-300/10 text-3xl">✦</span><p className="eyebrow mt-6">Espace privé</p><h1 className="mt-2 font-display text-3xl font-bold">Ta collection t’attend.</h1><p className="mt-3 text-sm text-slate-500">Connecte-toi pour synchroniser ton portefeuille sur tous tes appareils.</p><button disabled={!googleConfigured} className="button-primary mt-7 flex h-12 w-full items-center justify-center gap-3" onClick={() => signIn("google", { callbackUrl: "/collection" })}><span className="grid h-7 w-7 place-items-center rounded-full bg-white text-blue-600">G</span>{googleConfigured ? "Continuer avec Google" : "Google à configurer"}</button><div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-widest text-slate-700"><span className="h-px flex-1 bg-slate-800" />Accès propriétaire local<span className="h-px flex-1 bg-slate-800" /></div><form onSubmit={login}><input type="password" className="input h-11 w-full text-center" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Clé du lanceur" required />{message && <p className="mt-3 text-sm text-rose-300">{message}</p>}<button disabled={busy} className="button-secondary mt-3 h-11 w-full">{busy ? "Connexion…" : "Utiliser la clé locale"}</button></form></div></main>; }
 function euro(value: number) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(value); }
 function formatKind(value?: string) { return value ? value.toLowerCase().replaceAll("_", " ") : ""; }

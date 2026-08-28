@@ -5,9 +5,11 @@ import {
   isAdminRequest,
   isAdminTokenValid,
 } from "@/lib/admin/auth";
+import { getRequestUser, googleAuthConfigured } from "@/lib/auth/user";
 
 export async function GET(request: Request) {
-  return NextResponse.json({ authenticated: isAdminRequest(request) });
+  const user = await getRequestUser(request);
+  return NextResponse.json({ authenticated: Boolean(user), user, googleAuthConfigured });
 }
 
 export async function POST(request: Request) {
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Clé incorrecte" }, { status: 401 });
   }
 
-  const response = NextResponse.json({ authenticated: true });
+  const response = NextResponse.json({ authenticated: true, user: { id: "legacy-admin", name: "Propriétaire PokéDeal", role: "ADMIN", provider: "admin" } });
   response.cookies.set({
     name: ADMIN_SESSION_COOKIE,
     value: createAdminSessionValue(body.token ?? ""),

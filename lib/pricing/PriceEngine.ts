@@ -61,13 +61,16 @@ export class PriceEngine implements PriceProvider {
     });
     if (!latest) return null;
 
-    const low = latest.lowPrice ? Number(latest.lowPrice) : null;
-    const avg = latest.averagePrice ? Number(latest.averagePrice) : null;
-    const trend = latest.trendPrice ? Number(latest.trendPrice) : null;
+    const positive = (value: unknown) => {
+      const parsed = value === null ? NaN : Number(value);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    };
+    const low = positive(latest.lowPrice);
+    const avg = positive(latest.averagePrice);
+    const trend = positive(latest.trendPrice);
 
-    // conservativeValue : le plus bas disponible parmi low/avg (jamais le trend,
-    // qui peut être gonflé par une hausse récente ponctuelle).
-    // probableValue : avg si dispo, sinon trend.
+    // conservativeValue : le plus bas prix strictement positif disponible.
+    // probableValue : tendance Cardmarket, puis moyenne en repli.
     // optimisticValue : le plus élevé parmi trend/avg.
     const candidates = [low, avg, trend].filter((v): v is number => v !== null);
     if (candidates.length === 0) return null;
@@ -76,9 +79,8 @@ export class PriceEngine implements PriceProvider {
 
     // Bug évité : si low/avg sont absents mais trend présent, replier sur
     // trend plutôt que Math.min() sur un tableau vide (= Infinity).
-    const lowAvg = [low, avg].filter((v): v is number => v !== null);
-    const conservativeValue = lowAvg.length > 0 ? Math.min(...lowAvg) : firstCandidate;
-    const probableValue = avg ?? trend ?? conservativeValue;
+    const conservativeValue = Math.min(...candidates);
+    const probableValue = trend ?? avg ?? low ?? conservativeValue;
     const optimisticValue = Math.max(...candidates);
 
     return { optimisticValue, probableValue, conservativeValue, retrievedAt: latest.retrievedAt };

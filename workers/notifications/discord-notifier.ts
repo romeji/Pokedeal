@@ -2,6 +2,7 @@ import { prisma } from "@/lib/database/prisma";
 import { DiscordNotificationProvider } from "@/lib/discord/DiscordNotificationProvider";
 import type { NotificationProvider } from "@/lib/notifications/types";
 import { runJob } from "@/lib/workers/runJob";
+import { LEGACY_ADMIN_USER_ID } from "@/lib/auth/user";
 
 export interface NotificationRunResult {
   sent: number;
@@ -45,7 +46,7 @@ export class NotificationNotifierWorker {
       errors: 0,
     };
     const activeRules = await prisma.alertRule.findMany({ where: { active: true } });
-    const watchlist = await prisma.watchlist.findMany();
+    const watchlist = await prisma.watchlist.findMany({ where: { userId: LEGACY_ADMIN_USER_ID } });
 
     for (const opportunity of opportunities) {
       const previous = opportunity.notifications[0];
@@ -58,6 +59,11 @@ export class NotificationNotifierWorker {
         continue;
       }
       if (!opportunity.score) {
+        result.suppressedByRules++;
+        continue;
+      }
+      const productIds = opportunity.listing.matches.map((match) => match.productId);
+      if (new Set(productIds).size !== productIds.length || opportunity.listing.matches.some((match) => match.confidence < 0.65)) {
         result.suppressedByRules++;
         continue;
       }

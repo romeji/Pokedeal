@@ -1,6 +1,6 @@
 import { BinderType, ProductKind } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin/auth";
+import { getRequestUser } from "@/lib/auth/user";
 import { entryUnitValue } from "@/lib/collections/valuation";
 import { recordCollectionActivity } from "@/lib/collections/activity";
 import { prisma } from "@/lib/database/prisma";
@@ -23,8 +23,10 @@ const entryPriceSelect = {
 };
 
 export async function GET(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
   const binders = await prisma.collectorBinder.findMany({
+    where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
     include: {
       entries: { select: entryPriceSelect },
@@ -59,7 +61,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
   const body = (await request.json()) as {
     name?: string;
     description?: string;
@@ -94,6 +97,7 @@ export async function POST(request: Request) {
         type === BinderType.MASTER_CARDS ? `Master set · ${setFr?.name}` : "Nouveau classeur");
   const binder = await prisma.collectorBinder.create({
     data: {
+      userId: user.id,
       name,
       description: body.description?.trim() || null,
       type,
@@ -110,9 +114,10 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
+  const user = await getRequestUser(request);
+  if (!user) return NextResponse.json({ error: "Connexion requise" }, { status: 401 });
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Classeur requis" }, { status: 400 });
-  await prisma.collectorBinder.delete({ where: { id } });
-  return NextResponse.json({ deleted: true });
+  const result = await prisma.collectorBinder.deleteMany({ where: { id, userId: user.id } });
+  return NextResponse.json({ deleted: result.count > 0 });
 }

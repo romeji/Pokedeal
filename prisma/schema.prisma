@@ -12,6 +12,62 @@ datasource db {
 }
 
 // ==========================================================
+// IDENTITÉ — Auth.js / Google OAuth
+// ==========================================================
+
+model User {
+  id            String            @id @default(cuid())
+  name          String?
+  email         String?           @unique
+  emailVerified DateTime?
+  image         String?
+  role          String            @default("USER")
+  accounts      Account[]
+  sessions      Session[]
+  binders       CollectorBinder[]
+  watchlist     Watchlist[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==========================================================
 // CARDMARKET / CATALOGUE
 //
 // Schéma aligné sur les fichiers réels fournis par Jack
@@ -238,6 +294,7 @@ model ProductMatch {
   confidence Float
   createdAt  DateTime          @default(now())
 
+  @@unique([listingId, productId])
   @@index([listingId])
 }
 
@@ -285,11 +342,16 @@ model OpportunityScore {
 
 model Watchlist {
   id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String?
   product   CardmarketProduct? @relation(fields: [productId], references: [id])
   label     String // ex: "Pokémon 151 ETB FR"
   maxPrice  Decimal?
   createdAt DateTime           @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
 }
 
 // ==========================================================
@@ -305,6 +367,8 @@ enum BinderType {
 
 model CollectorBinder {
   id              String                    @id @default(cuid())
+  userId          String
+  user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name            String
   description     String?
   type            BinderType                @default(CUSTOM)
@@ -320,6 +384,7 @@ model CollectorBinder {
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
 
+  @@index([userId, updatedAt])
   @@index([type, updatedAt])
 }
 

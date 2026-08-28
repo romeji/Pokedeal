@@ -79,12 +79,14 @@ export class ListingAnalyzer {
 
             const match = await this.matcher.match(item);
             if (match) {
-              await prisma.productMatch.create({
-                data: {
+              await prisma.productMatch.upsert({
+                where: { listingId_productId: { listingId: listing.id, productId: match.cardmarketProductId } },
+                create: {
                   listingId: listing.id,
                   productId: match.cardmarketProductId,
                   confidence: match.confidence,
                 },
+                update: { confidence: { set: match.confidence } },
               });
             }
             void listingItem; // conservé pour trace/debug, pas relié à ProductMatch directement en V1
