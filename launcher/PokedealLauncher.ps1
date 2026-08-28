@@ -87,11 +87,17 @@ function Invoke-ResponsiveNpm([string[]]$arguments, [string]$progressMessage) {
   Write-LauncherLog "$progressMessage La fenêtre reste utilisable pendant le contrôle."
   $process = Start-Process -FilePath "npm.cmd" -ArgumentList $arguments -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
   while (!$process.WaitForExit(250)) { [Windows.Forms.Application]::DoEvents() }
+  # WaitForExit(timeout) peut signaler la fin avant que PowerShell ait
+  # rafraîchi ExitCode et vidé les flux redirigés. Le second appel sans
+  # délai finalise l'objet Process et évite un code de sortie vide.
+  $process.WaitForExit()
+  $process.Refresh()
+  $exitCode = $process.ExitCode
   $output = @()
   if (Test-Path -LiteralPath $stdoutPath) { $output += Get-Content -LiteralPath $stdoutPath }
   if (Test-Path -LiteralPath $stderrPath) { $output += Get-Content -LiteralPath $stderrPath | Where-Object { $_ -notmatch "CJS build of Vite's Node API is deprecated" } }
   if ($output.Count) { Write-Output ($output -join [Environment]::NewLine) }
-  if ($process.ExitCode -ne 0) { throw "npm a retourné le code $($process.ExitCode). Ouvre les journaux pour le détail." }
+  if ($exitCode -ne 0) { throw "npm a retourné le code $exitCode. Ouvre les journaux pour le détail." }
   $global:LASTEXITCODE = 0
 }
 

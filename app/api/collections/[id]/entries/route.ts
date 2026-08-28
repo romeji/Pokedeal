@@ -17,6 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     condition?: string;
     quantity?: number;
     purchasePrice?: number | null;
+    increment?: boolean;
   };
   const binder = await prisma.collectorBinder.findFirst({ where: { id, userId: user.id }, select: { id: true } });
   if (!binder) return NextResponse.json({ error: "Classeur introuvable" }, { status: 404 });
@@ -69,7 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const entry = await prisma.collectionEntry.upsert({
     where: { binderId_externalId_variant_condition: { binderId: binder.id, externalId: data.externalId, variant, condition } },
     create: data,
-    update: { quantity, purchasePrice: body.purchasePrice ?? undefined },
+    update: { quantity: body.increment ? { increment: quantity } : quantity, purchasePrice: body.purchasePrice ?? undefined },
   });
   await recordCollectionActivity(binder.id, "ENTRY_ADDED", entry.name, { quantity: entry.quantity, variant: entry.variant });
   await recordBinderSnapshot(binder.id);

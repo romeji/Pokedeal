@@ -64,7 +64,10 @@ export function CollectionStudio() {
         setGoogleConfigured(Boolean(data.googleAuthConfigured));
         const valid = Boolean(data.authenticated);
         setAuthenticated(valid);
-        if (valid) await loadBinders();
+        if (valid) {
+          await loadBinders();
+          if (new URLSearchParams(window.location.search).get("create") === "1") setShowCreate(true);
+        }
       })
       .catch(() => setAuthenticated(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,16 +108,13 @@ export function CollectionStudio() {
 
   return (
     <main className="app-page maquette-page portfolio-page">
-      <header className="maquette-topbar relative z-10">
-        <div><span>Vue d&apos;ensemble</span><h1>Portefeuille</h1></div>
-        <div className="topbar-actions"><button className="circle-action" onClick={() => setShowCreate(true)} aria-label="Créer un classeur">＋</button></div>
-      </header>
+      <header className="maquette-topbar relative z-10"><div><span>Vue d&apos;ensemble</span><h1>Portefeuille</h1></div></header>
       {message && <p className="relative z-10 mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-100">{message}</p>}
 
       <section className="summary-row"><div className="summary-card neu-card"><span className="num">{cardCount}</span><span className="lab">Cartes</span></div><div className="summary-card neu-card"><span className="num">{sealedCount}</span><span className="lab">Items</span></div><div className="summary-card neu-card"><span className="num">{completed}</span><span className="lab">Terminés</span></div></section>
       <section className="value-card neu-card"><span className="lab">Valeur totale</span><strong className="amount">{euro(portfolioValue)}</strong><span className="delta">Cotation Cardmarket actuelle</span><div className="value-chart"><svg viewBox="0 0 320 100" preserveAspectRatio="none"><defs><linearGradient id="walletFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5b8def" stopOpacity=".4"/><stop offset="1" stopColor="#5b8def" stopOpacity="0"/></linearGradient></defs><polyline points="0,76 26,69 52,72 78,61 104,64 130,47 156,51 182,36 208,40 234,26 260,30 286,17 320,10" fill="none" stroke="#5b8def" strokeWidth="3" strokeLinecap="round"/><polygon points="0,76 26,69 52,72 78,61 104,64 130,47 156,51 182,36 208,40 234,26 260,30 286,17 320,10 320,100 0,100" fill="url(#walletFill)"/></svg></div><div className="range-stats"><div><span>Bas</span><strong>{euro(lowValue)}</strong></div><div><span>Moyenne</span><strong>{euro(averageValue)}</strong></div><div><span>Haut</span><strong>{euro(highValue)}</strong></div></div></section>
-      <section className="action-row"><Link href="/collection/sales" className="action-card neu-card"><span className="ico">↗</span><strong>Ventes</strong><small>Historique et P&amp;L</small></Link><Link href="/items" className="action-card neu-card"><span className="ico">＋</span><strong>Ajouter</strong><small>Carte ou item coté</small></Link><Link href="/collection/blocks" className="action-card neu-card"><span className="ico">▦</span><strong>Master set</strong><small>Par bloc et série</small></Link><button onClick={() => setShowCreate(true)} className="action-card neu-card"><span className="ico">▤</span><strong>Classeur</strong><small>Créer une collection</small></button></section>
-      <section className="binder-section"><div className="section-heading"><h2>Mes classeurs</h2><button onClick={() => setShowCreate(true)}>Ajouter →</button></div>{binders.length?<div className="binder-list">{binders.map((binder)=><Link key={binder.id} href={`/portfolio/${binder.id}`} className="binder-row"><span className="binder-mini-cover">{binder.coverImageUrl?<img src={binder.coverImageUrl} alt=""/>:TYPE_META[binder.type].icon}</span><span className="binder-info"><strong>{binder.name}</strong><small>{TYPE_META[binder.type].label}{binder.progress!==null?` · ${binder.progress}%`:""}</small></span><span className="binder-value"><strong>{euro(binder.value)}</strong><small>{binder.totalItems} élément(s)</small></span></Link>)}</div>:<EmptyCollection onCreate={() => setShowCreate(true)} />}</section>
+      <section className="action-row"><Link href="/collection/sales" className="action-card neu-card"><span className="ico">↗</span><strong>Ventes</strong><small>Historique et P&amp;L</small></Link><Link href="/items" className="action-card neu-card"><span className="ico">＋</span><strong>Ajouter un produit</strong><small>Carte ou item coté</small></Link></section>
+      <section className="binder-section"><div className="section-heading"><h2>Mes classeurs</h2></div>{binders.length?<div className="binder-list">{binders.map((binder)=><Link key={binder.id} href={`/portfolio/${binder.id}`} className="binder-row"><span className="binder-mini-cover">{binder.coverImageUrl?<img src={binder.coverImageUrl} alt=""/>:TYPE_META[binder.type].icon}</span><span className="binder-info"><strong>{binder.name}</strong><small>{TYPE_META[binder.type].label}{binder.progress!==null?` · ${binder.progress}%`:""}</small></span><span className="binder-value"><strong>{euro(binder.value)}</strong><small>{binder.totalItems} élément(s)</small></span></Link>)}</div>:<EmptyCollection onCreate={() => setShowCreate(true)} />}</section>
       <section className="portfolio-utilities"><button onClick={() => downloadBackup("csv")}>↓ CSV</button><button onClick={() => downloadBackup("json")}>↓ Sauvegarder</button><button onClick={() => restoreInput.current?.click()}>↑ Restaurer</button><input ref={restoreInput} type="file" accept="application/json,.json" className="hidden" onChange={restoreBackup} /></section>
 
       {showCreate && <CreateBinder close={() => setShowCreate(false)} created={async (id, setId) => { setShowCreate(false); setCreatedBinder({ id, setId }); await loadBinders(); }} />}

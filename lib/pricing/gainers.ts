@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/database/prisma";
 
-type RawGainer = { id: string; name: string; imageUrl: string | null; kind: string; oldPrice: unknown; currentPrice: unknown; changePercent: unknown };
-export type MarketGainer = { id: string; name: string; imageUrl: string | null; kind: string; oldPrice: number; currentPrice: number; changePercent: number };
+type RawGainer = { id: string; cardmarketProductId: number; name: string; imageUrl: string | null; kind: string; oldPrice: unknown; currentPrice: unknown; changePercent: unknown };
+export type MarketGainer = { id: string; cardmarketProductId: number; name: string; imageUrl: string | null; kind: string; oldPrice: number; currentPrice: number; changePercent: number };
 
 export async function getTopGainers(limit = 50, days = 7): Promise<MarketGainer[]> {
   const safeLimit = Math.min(100, Math.max(1, limit));
@@ -22,7 +22,7 @@ export async function getTopGainers(limit = 50, days = 7): Promise<MarketGainer[
         MAX("retrievedAt") OVER (PARTITION BY "productId") AS last_at
       FROM priced
     )
-    SELECT p.id, p.name, p."imageUrl", p.kind::text AS kind,
+    SELECT p.id, p."cardmarketProductId", p.name, p."imageUrl", p.kind::text AS kind,
       b.old_price AS "oldPrice", b.current_price AS "currentPrice",
       ((b.current_price - b.old_price) / b.old_price * 100) AS "changePercent"
     FROM bounds b
