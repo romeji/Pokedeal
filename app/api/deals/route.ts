@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/auth/user";
 import { prisma } from "@/lib/database/prisma";
-import { INACTIVE_LISTING_STATUSES, INACTIVE_OPPORTUNITY_STATUSES } from "@/lib/deals/visibility";
+import { INACTIVE_OPPORTUNITY_STATUSES } from "@/lib/deals/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     score: { is: { ...(minScore ? { score: { gte: minScore } } : {}), confidenceScore: { gte: 0.72 }, riskScore: { lte: 0.65 } } },
     status: { notIn: [...INACTIVE_OPPORTUNITY_STATUSES] },
     listing: {
-      status: { notIn: [...INACTIVE_LISTING_STATUSES] },
+      status: "SCORED",
       ...(country ? { sellerCountry: { equals: country, mode: "insensitive" as const } } : {}),
       ...(condition ? { itemCondition: { contains: condition, mode: "insensitive" as const } } : {}),
       ...(since ? { firstSeenAt: { gte: new Date(since) } } : {}),

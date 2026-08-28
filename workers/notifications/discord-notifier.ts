@@ -30,7 +30,7 @@ export class NotificationNotifierWorker {
       },
       include: {
         listing: {
-          include: { images: true, matches: { include: { product: true } } },
+          include: { images: true, items: true, matches: { orderBy: { confidence: "desc" }, include: { product: true } } },
         },
         score: true,
         notifications: { where: { channel } },
@@ -66,8 +66,8 @@ export class NotificationNotifierWorker {
         result.suppressedByRules++;
         continue;
       }
-      const productIds = opportunity.listing.matches.map((match) => match.productId);
-      if (new Set(productIds).size !== productIds.length || opportunity.listing.matches.some((match) => match.confidence < 0.82)) {
+      const primaryMatch = opportunity.listing.matches[0];
+      if (!primaryMatch || primaryMatch.confidence < 0.82 || opportunity.listing.items.length > 1) {
         result.suppressedByRules++;
         continue;
       }

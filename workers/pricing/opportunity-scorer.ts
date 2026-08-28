@@ -19,7 +19,7 @@ export class OpportunityScoringWorker {
   async runOnce(limit = 20): Promise<{ scored: number; skipped: number; errors: number }> {
     const listings = await prisma.listing.findMany({
       where: { status: "ANALYZED" },
-      include: { matches: true, items: true },
+      include: { matches: { orderBy: { confidence: "desc" } }, items: true },
       take: limit,
     });
 
@@ -44,7 +44,16 @@ export class OpportunityScoringWorker {
           continue;
         }
 
-        const matchedItems: MatchedItem[] = listing.matches.filter((match) => match.confidence >= 0.82).map((m) => ({
+        if (listing.items.length > 1) {
+          await prisma.listing.update({ where: { id: listing.id }, data: { status: "REVIEW_REQUIRED", filterReason: "Lot multi-produits : chaque élément doit être associé séparément" } });
+          skipped++;
+          continue;
+        }
+
+        // ProductMatch contient des candidats alternatifs, pas les composants
+        // d'un lot. Pour une annonce simple, seule la meilleure association
+        // doit contribuer à la valeur, sinon les prix sont additionnés à tort.
+        const matchedItems: MatchedItem[] = listing.matches.filter((match) => match.confidence >= 0.82).slice(0, 1).map((m) => ({
           cardmarketProductId: m.productId,
           matchConfidence: m.confidence,
         }));
