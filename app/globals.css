@@ -262,3 +262,104 @@ body::before {
 .news-carousel{display:grid;grid-auto-columns:minmax(17rem,31%);grid-auto-flow:column;gap:.8rem;overflow-x:auto;padding:.15rem .1rem .8rem;scroll-snap-type:x mandatory}.news-card{display:flex;min-height:10rem;flex-direction:column;justify-content:flex-end;padding:1rem;background:radial-gradient(circle at 80% 0,rgba(59,130,246,.16),transparent 40%),linear-gradient(145deg,rgba(25,34,48,.8),rgba(8,13,22,.76));scroll-snap-align:start}.news-card span{color:#67e8f9;font-size:.58rem;font-weight:800;letter-spacing:.12em}.news-card h3{margin-top:.55rem;font-size:1rem;font-weight:700;line-height:1.3rem}.news-card small{margin-top:.8rem;color:#64748b;font-size:.66rem}
 @media(max-width:1023px){.dashboard-metrics{grid-template-columns:1fr 1fr}.dashboard-columns{grid-template-columns:1fr}.news-carousel{grid-auto-columns:minmax(16rem,60%)}}
 @media(max-width:600px){.dashboard-welcome{align-items:flex-start;flex-direction:column}.portfolio-spark{height:8rem;margin-top:.5rem}.portfolio-summary{gap:.4rem}.portfolio-summary strong{font-size:.82rem}.dashboard-metrics{gap:.55rem}.dashboard-metrics strong{font-size:1.15rem}.news-carousel{grid-auto-columns:82%}}
+
+/* ========================================================================== */
+/* DESIGN SYSTEM CANONIQUE — pokedeal-maquette (1).html                       */
+/* Toute nouvelle interface PokéDeal doit utiliser ces variables/composants.  */
+/* ========================================================================== */
+:root{
+  --base:#262b36;
+  --base-2:#2a2f3b;
+  --base-3:#2e3442;
+  --shadow-d:#14161c;
+  --shadow-l:#343c4c;
+  --accent:#5b8def;
+  --accent-2:#7aa2ff;
+  --accent-soft:rgba(91,141,239,.15);
+  --success:#3ddc97;
+  --success-soft:rgba(61,220,151,.14);
+  --danger:#ff6b7a;
+  --danger-soft:rgba(255,107,122,.14);
+  --warn:#ffb84c;
+  --warn-soft:rgba(255,184,76,.16);
+  --text:#eef1f7;
+  --text-mid:#a7aec1;
+  --text-dim:#727b90;
+  --radius-lg:26px;
+  --radius-md:18px;
+  --radius-sm:12px;
+}
+html{background:#111318;color-scheme:dark}
+body{min-height:100vh;color:var(--text);background:#111318;background-image:none;background-attachment:initial}
+body::before{display:none}
+.pokedeal-shell{background:var(--base)}
+.brand-mark{font-family:"Space Grotesk",sans-serif;font-size:18px;font-weight:700;letter-spacing:-.02em}.brand-mark span{color:var(--accent-2)}
+.desktop-sidebar{border-radius:var(--radius-lg);background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}
+.desktop-sidebar .nav-link{display:flex;align-items:center;gap:12px;border-radius:16px;padding:11px 13px;color:var(--text-mid);font-weight:600}.desktop-sidebar .nav-link span{display:grid;width:32px;height:32px;place-items:center;border-radius:11px;background:var(--accent-soft)}.desktop-sidebar .nav-link:hover{color:var(--text);background:var(--base);box-shadow:inset 4px 4px 8px var(--shadow-d),inset -4px -4px 8px var(--shadow-l)}
+.sidebar-foot{color:var(--text-dim)}.sidebar-foot a{color:var(--accent-2)}
+
+.app-page{max-width:1480px;padding-top:24px;background:var(--base)}
+.maquette-page{font-family:"Inter",sans-serif}
+.eyebrow{color:var(--accent-2);font-size:10px;font-weight:700;letter-spacing:.08em}
+.page-hero{border:0;border-radius:var(--radius-lg);padding:22px 24px;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}
+.page-hero h1{margin-top:4px;font-size:clamp(26px,5vw,42px);letter-spacing:-.035em}.page-hero p:last-child{color:var(--text-dim)}
+.neu-raised,.neu-card,.surface,.metric{border:0;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}
+.neu-card,.surface,.metric{border-radius:var(--radius-md)}
+.neu-card:hover{border-color:transparent}
+.neu-inset,.neu-input,.input{border:0;border-radius:var(--radius-md);color:var(--text);background:var(--base);box-shadow:inset 5px 5px 10px var(--shadow-d),inset -5px -5px 10px var(--shadow-l)}
+.neu-input::placeholder,.input::placeholder{color:var(--text-dim)}
+.neu-button,.button-secondary{border:0;border-radius:var(--radius-sm);color:var(--text-mid);background:var(--base);box-shadow:5px 5px 10px var(--shadow-d),-5px -5px 10px var(--shadow-l)}
+.neu-button:hover,.button-secondary:hover{color:var(--accent-2);background:var(--base)}
+.neu-button:active,.view-switch button.active{box-shadow:inset 3px 3px 6px var(--shadow-d),inset -3px -3px 6px var(--shadow-l)}
+.button-primary{border-radius:14px;color:#fff;background:var(--accent);box-shadow:inset 3px 3px 6px #3b6bcf,inset -3px -3px 6px #7aa2ff}
+.status-message{border:0;color:var(--accent-2);background:var(--accent-soft);box-shadow:inset 3px 3px 6px rgba(20,22,28,.45)}
+.loading-panel{border:0;border-radius:var(--radius-md);color:var(--text-dim);background:var(--base);box-shadow:inset 5px 5px 10px var(--shadow-d),inset -5px -5px 10px var(--shadow-l)}
+
+/* Navigation exacte de la maquette */
+.mobile-header{top:0;margin:0;border:0;border-radius:0;padding:14px 24px 10px;background:var(--base);backdrop-filter:none;box-shadow:none}
+.coll-topbar-btn,.account-pill{border:0;background:var(--base);box-shadow:6px 6px 12px var(--shadow-d),-6px -6px 12px var(--shadow-l)}
+.account-pill{height:44px;border-radius:16px;color:var(--text-mid)}.account-avatar{width:30px;height:30px;color:var(--accent-2);background:var(--base-3)}
+.mobile-dock{left:0;right:0;bottom:0;height:82px;border:0;border-top:1px solid rgba(255,255,255,.04);border-radius:0;padding:8px 12px max(10px,env(safe-area-inset-bottom));background:var(--base);backdrop-filter:none;box-shadow:0 -8px 24px rgba(20,22,28,.45)}
+.mobile-dock-link{min-width:54px;height:60px;gap:3px;border-radius:14px;color:var(--text-dim)}.mobile-dock-link span{font-size:18px}.mobile-dock-link small{font-size:9.5px;font-weight:700}.mobile-dock-link.active{color:var(--accent-2);background:transparent;box-shadow:none}.mobile-dock-link.active span{width:38px;height:34px;display:grid;place-items:center;border-radius:12px;background:var(--accent-soft);box-shadow:inset 3px 3px 6px rgba(20,22,28,.25)}
+
+/* Switchs, sous-navigation et contrôles */
+.collection-subnav.tabswitch{top:8px;width:min(680px,calc(100% - 24px));max-width:none;margin:8px auto 16px;border:0;border-radius:18px;padding:5px;background:var(--base);backdrop-filter:none;box-shadow:inset 5px 5px 10px var(--shadow-d),inset -5px -5px 10px var(--shadow-l)}
+.collection-subnav.tabswitch a{flex:1;justify-content:center;border-radius:14px;padding:10px;color:var(--text-dim);font-size:12px}.collection-subnav.tabswitch a.active{color:var(--text);background:var(--base);box-shadow:5px 5px 10px var(--shadow-d),-5px -5px 10px var(--shadow-l)}
+.view-switch{border:0;border-radius:16px;padding:5px;background:var(--base);box-shadow:inset 5px 5px 10px var(--shadow-d),inset -5px -5px 10px var(--shadow-l)}.view-switch button{border-radius:12px;color:var(--text-dim)}.view-switch button.active{color:var(--accent-2);background:var(--base)}
+
+/* Accueil / portefeuille de la maquette */
+.dashboard-welcome{padding:10px 0 4px}.dashboard-welcome h1{font-size:clamp(24px,5vw,38px);letter-spacing:-.035em}.dashboard-welcome>div>p:last-child{color:var(--text-dim)}
+.portfolio-hero{border:0;border-radius:24px;padding:22px;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.portfolio-hero>div>strong{font-size:clamp(34px,7vw,58px)}.portfolio-spark svg{filter:none}.portfolio-spark stop{stop-color:var(--accent)}.portfolio-spark path[stroke]{stroke:var(--accent)}.portfolio-summary{border-color:rgba(255,255,255,.05)}.portfolio-summary span{color:var(--text-dim)}
+.gain-badge{color:var(--success);background:var(--success-soft)}.loss-badge{color:var(--danger);background:var(--danger-soft)}
+.dashboard-metrics article{border-radius:var(--radius-md);padding:14px 12px;min-height:118px}.dashboard-metrics span,.dashboard-metrics small{color:var(--text-dim);font-size:10px}.dashboard-metrics strong{font-size:17px}
+.gainer-row,.dashboard-deal{border-radius:18px;padding:12px 14px}.gainer-row img,.gainer-row>.image-placeholder,.dashboard-deal img,.dashboard-deal>.image-placeholder{border-radius:12px;background:var(--base-3);box-shadow:inset 3px 3px 6px var(--shadow-d),inset -3px -3px 6px var(--shadow-l)}
+.news-card{min-height:132px;border-radius:20px;padding:14px 16px;background:linear-gradient(135deg,#2b3a5c,#1b2438);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.news-card:nth-child(2){background:linear-gradient(135deg,#3a2b52,#221a34)}.news-card:nth-child(3){background:linear-gradient(135deg,#274235,#17251d)}.news-card span{color:var(--accent-2)}.news-card small{color:var(--text-mid)}
+
+/* Recherche de prix : cartes de la maquette + option liste */
+.price-grid{gap:14px}.price-card,.price-row{border:0;border-radius:20px;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.price-card:hover,.price-row:hover{border-color:transparent}.price-image{background:linear-gradient(135deg,var(--base-3),var(--base-2));box-shadow:inset 3px 3px 6px var(--shadow-d),inset -3px -3px 6px var(--shadow-l)}.price-image img{padding:8px}.price-content{padding:14px}.price-content h2{font-size:13px}.price-content>p,.price-values span,.price-content>small{color:var(--text-dim)}.price-values strong{color:var(--accent-2);font-size:15px}.catalog-code{color:var(--accent-2)}
+
+/* Deals complets de la maquette */
+.deal-toolbar{border-radius:20px;padding:14px;background:var(--base);box-shadow:inset 5px 5px 10px var(--shadow-d),inset -5px -5px 10px var(--shadow-l)}
+.deal-card{border:0;border-radius:22px;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.deal-card>img,.deal-card>.image-placeholder{background:linear-gradient(135deg,var(--base-3),var(--base-2));box-shadow:inset 3px 3px 6px var(--shadow-d),inset -3px -3px 6px var(--shadow-l)}.deal-copy h2{font-size:13.5px}.deal-copy>p,.deal-copy>small{color:var(--text-dim)}.deal-metrics span{border-radius:14px;padding:9px 6px;text-align:center;color:var(--text-dim);box-shadow:inset 4px 4px 8px var(--shadow-d),inset -4px -4px 8px var(--shadow-l)}.score-pill{border:0;border-radius:14px;color:var(--success);background:var(--success-soft)}.danger-button{border:0;color:var(--danger);background:var(--danger-soft)}
+
+/* Blocs, séries, cartes et classeurs */
+.collection-stage{background:var(--base)}.collection-stage::before,.collection-stage::after{display:none}.aurora-text{color:var(--text);background:none;-webkit-text-fill-color:initial}
+.series-catalog-grid{gap:12px}.series-catalog-card{aspect-ratio:1/1;min-height:0;border-radius:22px;padding:12px}.series-catalog-card img{height:42px}.series-catalog-card span{color:var(--accent-2)}
+.set-catalog-grid{gap:14px}.set-catalog-card{border-radius:20px;padding:14px}.set-catalog-card img,.set-logo-placeholder{border-radius:14px;background:linear-gradient(135deg,var(--base-3),var(--base-2));box-shadow:inset 3px 3px 6px var(--shadow-d),inset -3px -3px 6px var(--shadow-l)}.progress-track{height:4px;background:var(--base-3)}.progress-track span{background:var(--accent)}
+.catalog-card{border:0;border-radius:18px;padding:8px;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.catalog-card.owned{outline:2px solid rgba(61,220,151,.25)}.catalog-card-main img,.catalog-card-main .image-placeholder{background:linear-gradient(135deg,var(--base-3),var(--base-2));box-shadow:inset 3px 3px 6px var(--shadow-d),inset -3px -3px 6px var(--shadow-l)}.wish-button{color:var(--text-mid);background:var(--base);box-shadow:4px 4px 8px var(--shadow-d),-4px -4px 8px var(--shadow-l)}.wish-button.active{color:var(--warn)}.owned-badge{background:var(--success)}
+.binder-cover{border:0;border-radius:20px;background:var(--base)!important;box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.binder-cover::after,.binder-glow{display:none}.binder-cover:hover,.binder-cover.active{transform:translateY(-3px);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}
+.hero-metric{border:0;border-radius:18px;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.hero-metric::after{display:none}.workspace-tab{border-radius:14px;color:var(--text-dim)}.workspace-tab.active{color:var(--text);background:var(--base);box-shadow:5px 5px 10px var(--shadow-d),-5px -5px 10px var(--shadow-l)}
+.collectible-tile,.type-choice,.set-chip{border:0;background:var(--base);box-shadow:6px 6px 12px var(--shadow-d),-6px -6px 12px var(--shadow-l)}.collectible-tile:hover,.type-choice:hover,.type-choice.active,.set-chip:hover,.set-chip.active{border-color:transparent;background:var(--base);box-shadow:inset 4px 4px 8px var(--shadow-d),inset -4px -4px 8px var(--shadow-l)}
+
+/* Fiche article et feuilles modales */
+.item-detail-hero,.chart-card,.market-row,.listing-mini{border:0;background:var(--base);box-shadow:8px 8px 16px var(--shadow-d),-8px -8px 16px var(--shadow-l)}.item-detail-hero{border-radius:24px}.item-detail-image{border-radius:18px;background:var(--base);box-shadow:inset 5px 5px 10px var(--shadow-d),inset -5px -5px 10px var(--shadow-l)}.item-live-price,.market-row span{color:var(--accent-2)}.price-chart path[stroke]{stroke:var(--accent)}.market-row{border-radius:14px}.market-row:hover{border-color:transparent}.helper-text,.listing-mini small{color:var(--text-dim)}
+.modal-backdrop{place-items:end;background:rgba(17,19,24,.72);backdrop-filter:blur(5px)}.app-modal,.modal-orbit{border:0;border-radius:28px 28px 0 0;background:var(--base);box-shadow:0 -14px 40px rgba(0,0,0,.55)}.modal-close{color:var(--text-mid);background:var(--base);box-shadow:4px 4px 8px var(--shadow-d),-4px -4px 8px var(--shadow-l)}
+
+/* Profil et paramètres exacts de la maquette */
+.profile-head{display:flex;flex-direction:column;align-items:center;padding:18px 24px 26px}.profile-avatar{display:flex;width:84px;height:84px;align-items:center;justify-content:center;overflow:hidden;border-radius:26px;color:var(--accent-2);font-family:"Space Grotesk",sans-serif;font-size:30px;font-weight:700}.profile-avatar img{width:100%;height:100%;object-fit:cover}.profile-head h1{font-family:"Space Grotesk",sans-serif;font-size:18px;font-weight:700}.profile-head p{margin-top:3px;color:var(--text-dim);font-size:11px}.profile-head .plan{margin-top:8px;border-radius:20px;padding:4px 12px;color:#1b2438;background:linear-gradient(135deg,var(--accent-2),var(--accent));font-size:11px;font-weight:700}
+.profile-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 auto 24px;max-width:520px}.summary-card{display:flex;flex-direction:column;align-items:center;gap:5px;border-radius:18px;padding:14px 10px}.summary-card .num{color:var(--accent-2);font-family:"Space Grotesk",sans-serif;font-size:22px;font-weight:700}.summary-card .lab{color:var(--text-dim);font-size:10px;font-weight:600}
+.settings-group{max-width:720px;margin:0 auto 20px;padding:0}.settings-group .grouplabel{margin:0 2px 10px;color:var(--text-dim);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}.settings-block{overflow:hidden;border-radius:20px}.setting-row{display:flex;min-height:62px;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.045)}.setting-row:last-child{border-bottom:0}.setting-row .ico{display:flex;width:36px;height:36px;flex-shrink:0;align-items:center;justify-content:center;border-radius:12px;background:var(--accent-soft)}.setting-row .lbl{min-width:0;flex:1}.setting-row .t{font-size:12.5px;font-weight:700}.setting-row .s{margin-top:2px;color:var(--text-dim);font-size:10.5px}.setting-row .chev{color:var(--text-dim);font-size:20px}
+
+@media(min-width:768px){.pokedeal-shell{background:#111318}.pokedeal-shell>div{margin:12px 12px 12px 0;border-radius:32px;background:var(--base);box-shadow:0 25px 70px rgba(0,0,0,.32)}.app-page{border-radius:32px}.app-modal,.modal-orbit{border-radius:28px}.price-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:767px){.app-page{padding:14px 24px 110px}.page-hero{padding:18px}.page-hero h1{font-size:27px}.dashboard-metrics{grid-template-columns:repeat(3,1fr)}.dashboard-metrics article:nth-child(4){grid-column:1/-1;min-height:auto}.deal-toolbar{padding:12px}.collection-subnav.tabswitch{position:sticky}.item-detail-hero{border-radius:22px}.profile-page{padding-top:4px}}
+@media(max-width:430px){.app-page{padding-left:18px;padding-right:18px}.collection-subnav.tabswitch a{padding:9px 7px;font-size:10px}.collection-subnav.tabswitch a span{display:none}.dashboard-metrics{gap:8px}.dashboard-metrics article{padding:12px 9px}.price-grid{gap:12px}.profile-stat-row{gap:8px}}

@@ -14,7 +14,39 @@ export default async function ProfilePage() {
     prisma.collectionSale.count({ where: { userId: user.id } }),
   ]);
   const isAdmin = user.role === "ADMIN";
-  return <main className="app-page"><header className="page-hero flex flex-col gap-5 sm:flex-row sm:items-center"><div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[1.5rem] bg-blue-400/10 text-3xl font-bold text-blue-300">{user.image?<img src={user.image} alt="" className="h-full w-full object-cover"/>:(user.name?.[0]||"P")}</div><div className="min-w-0 flex-1"><p className="eyebrow">Profil PokéDeal</p><h1 className="truncate">{user.name||"Collectionneur"}</h1><p>{user.email}{isAdmin?" · Administrateur":" · Collectionneur"}</p></div><AccountControl/></header><section className="mt-7 grid gap-4 sm:grid-cols-3"><ProfileLink href="/collection/wishlist" value={favorites} label="Souhaits suivis" icon="☆"/><ProfileLink href="/collection" value={binders} label="Classeurs" icon="◫"/><ProfileLink href="/collection/sales" value={sales} label="Ventes" icon="↗"/></section>{isAdmin&&<Link href="/settings" className="neu-card interactive-card mt-5 flex items-center gap-4"><span className="feature-icon">⚙</span><div><h2 className="font-bold">Configuration administrateur</h2><p className="mt-1 text-sm text-slate-500">Scanner Go, filtres, imports et santé du système.</p></div><span className="ml-auto text-blue-300">→</span></Link>}</main>;
+  return <main className="app-page maquette-page profile-page">
+    <div className="profile-head">
+      <div className="neu-raised profile-avatar">{user.image ? <img src={user.image} alt="" /> : (user.name?.[0] || "P")}</div>
+      <h1>{user.name || "Collectionneur"}</h1>
+      <p>{user.email}</p>
+      <div className="plan">{isAdmin ? "✦ Administrateur" : "✦ Compte collectionneur"}</div>
+    </div>
+
+    <div className="profile-stat-row">
+      <ProfileLink href="/collection/wishlist" value={favorites} label="Souhaits" icon="⭐" />
+      <ProfileLink href="/collection" value={binders} label="Classeurs" icon="🗂️" />
+      <ProfileLink href="/collection/sales" value={sales} label="Ventes" icon="🧾" />
+    </div>
+
+    <SettingsGroup label="Ma collection">
+      <SettingLink href="/collection/wishlist" icon="⭐" title="Liste de souhaits" subtitle={`${favorites} élément(s) suivi(s)`} />
+      <SettingLink href="/collection" icon="🃏" title="Classeurs et portefeuille" subtitle={`${binders} espace(s) de collection`} />
+      <SettingLink href="/collection/sales" icon="🧾" title="Historique des ventes" subtitle={`${sales} vente(s) enregistrée(s)`} />
+      <SettingLink href="/items" icon="📷" title="Analyse photo par IA" subtitle="Identifier une carte ou un item" />
+    </SettingsGroup>
+
+    {isAdmin && <SettingsGroup label="Administration">
+      <SettingLink href="/settings" icon="⚙️" title="Configuration PokéDeal" subtitle="Scanner, filtres, imports et santé du système" />
+    </SettingsGroup>}
+
+    <SettingsGroup label="Compte">
+      <SettingLink href="/privacy" icon="🔒" title="Politique de confidentialité" />
+      <SettingLink href="/terms" icon="📄" title="Conditions d'utilisation" />
+      <div className="setting-row"><div className="ico">🚪</div><div className="lbl"><div className="t">Déconnexion</div></div><AccountControl compact /></div>
+    </SettingsGroup>
+  </main>;
 }
 
-function ProfileLink({href,value,label,icon}:{href:string;value:number;label:string;icon:string}){return <Link href={href} className="neu-card interactive-card"><span className="feature-icon">{icon}</span><strong className="mt-5 block text-3xl">{value}</strong><span className="text-sm text-slate-500">{label}</span></Link>}
+function SettingsGroup({ label, children }: { label: string; children: React.ReactNode }) { return <section className="settings-group"><div className="grouplabel">{label}</div><div className="settings-block neu-raised">{children}</div></section>; }
+function SettingLink({ href, icon, title, subtitle }: { href: string; icon: string; title: string; subtitle?: string }) { return <Link href={href} className="setting-row"><div className="ico">{icon}</div><div className="lbl"><div className="t">{title}</div>{subtitle && <div className="s">{subtitle}</div>}</div><span className="chev">›</span></Link>; }
+function ProfileLink({ href, value, label, icon }: { href:string; value:number; label:string; icon:string }) { return <Link href={href} className="neu-raised summary-card"><span>{icon}</span><div className="num">{value}</div><div className="lab">{label}</div></Link>; }

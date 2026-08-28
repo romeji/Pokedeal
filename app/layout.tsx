@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "PokéDeal" },
 };
 
-export const viewport: Viewport = { themeColor: "#101722" };
+export const viewport: Viewport = { themeColor: "#262b36" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

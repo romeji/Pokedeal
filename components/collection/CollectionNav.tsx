@@ -12,7 +12,7 @@ const links = [
 
 export function CollectionNav() {
   const pathname = usePathname();
-  return <nav className="collection-subnav no-scrollbar">{links.map((link) => {
+  return <nav className="collection-subnav tabswitch no-scrollbar">{links.map((link) => {
     const active = link.href === "/collection" ? pathname === link.href : pathname.startsWith(link.href);
     return <Link key={link.href} href={link.href} className={active ? "active" : ""}><span>{link.icon}</span>{link.label}</Link>;
   })}</nav>;
