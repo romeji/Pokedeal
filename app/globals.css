@@ -363,3 +363,53 @@ body::before{display:none}
 @media(min-width:768px){.pokedeal-shell{background:#111318}.pokedeal-shell>div{margin:12px 12px 12px 0;border-radius:32px;background:var(--base);box-shadow:0 25px 70px rgba(0,0,0,.32)}.app-page{border-radius:32px}.app-modal,.modal-orbit{border-radius:28px}.price-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:767px){.app-page{padding:14px 24px 110px}.page-hero{padding:18px}.page-hero h1{font-size:27px}.dashboard-metrics{grid-template-columns:repeat(3,1fr)}.dashboard-metrics article:nth-child(4){grid-column:1/-1;min-height:auto}.deal-toolbar{padding:12px}.collection-subnav.tabswitch{position:sticky}.item-detail-hero{border-radius:22px}.profile-page{padding-top:4px}}
 @media(max-width:430px){.app-page{padding-left:18px;padding-right:18px}.collection-subnav.tabswitch a{padding:9px 7px;font-size:10px}.collection-subnav.tabswitch a span{display:none}.dashboard-metrics{gap:8px}.dashboard-metrics article{padding:12px 9px}.price-grid{gap:12px}.profile-stat-row{gap:8px}}
+
+/* Maquette V3 — structure canonique, commune à toutes les vues. */
+*{scrollbar-color:var(--base-3) transparent}
+.maquette-page{width:100%;font-family:"Inter",sans-serif}
+.maquette-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px;padding:4px 0}
+.maquette-topbar>div:first-child>span{display:block;margin-bottom:2px;color:var(--text-dim);font-size:11px;font-weight:600}
+.maquette-topbar h1{font-family:"Space Grotesk",sans-serif;font-size:25px;font-weight:700;letter-spacing:-.035em}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.circle-action,.avatar-btn{display:grid;width:44px;height:44px;place-items:center;border-radius:15px;color:var(--text-mid);background:var(--base);box-shadow:6px 6px 12px var(--shadow-d),-6px -6px 12px var(--shadow-l);font-weight:700}
+.avatar-btn{color:#fff;background:linear-gradient(135deg,var(--accent-2),var(--accent))}
+.section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:22px 0 12px}
+.section-heading h2{font-family:"Space Grotesk",sans-serif;font-size:15px;font-weight:700}
+.section-heading a{color:var(--accent-2);font-size:11px;font-weight:700}
+.stat-row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 25px}
+.stat-card3{position:relative;min-width:0;overflow:hidden;padding:14px 12px 10px}
+.stat-card3>span,.stat-card3>small{display:block;overflow:hidden;color:var(--text-dim);font-size:9.5px;text-overflow:ellipsis;white-space:nowrap}
+.stat-card3>strong{display:block;margin:6px 0 3px;font-family:"Space Grotesk",sans-serif;font-size:15px}
+.mini-spark{display:block;width:100%;height:24px;margin-top:7px}
+.login-strip{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:0 0 24px;padding:16px}.login-strip h2{font-size:13px;font-weight:700}.login-strip p{margin-top:3px;color:var(--text-dim);font-size:10px}
+.home-deal-scroll,.watch-scroll{display:grid;grid-auto-flow:column;grid-auto-columns:180px;gap:14px;overflow-x:auto;margin:0 -4px;padding:4px 4px 18px;scroll-snap-type:x mandatory}
+.home-deal-card,.watch-card{scroll-snap-align:start}
+.home-deal-card{display:block;overflow:hidden;padding:0}
+.home-deal-card>img,.home-deal-card>.deal-thumb{display:grid;width:100%;height:112px;place-items:center;object-fit:cover;background:linear-gradient(135deg,var(--base-3),var(--base-2));font-size:30px;box-shadow:inset 3px 3px 7px var(--shadow-d),inset -3px -3px 7px var(--shadow-l)}
+.home-deal-card>h3{overflow:hidden;margin:11px 12px 0;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.home-deal-card>p{overflow:hidden;margin:3px 12px;color:var(--text-dim);font-size:9px;text-overflow:ellipsis;white-space:nowrap}.home-deal-card>div:last-child{display:flex;align-items:center;justify-content:space-between;padding:8px 12px 12px}.home-deal-card strong{font-size:14px}.home-deal-card span{color:var(--success);font-size:11px;font-weight:700}
+.watch-card{min-height:142px;padding:14px}.watch-card>div{display:flex;align-items:start;justify-content:space-between;gap:8px}.watch-card h3{overflow:hidden;font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.watch-card>strong{display:block;font-family:"Space Grotesk",sans-serif;font-size:18px}.watch-card>small{font-size:9px}.watch-card .mini-spark{margin:9px 0 4px}
+.empty-inline{display:grid;min-height:130px;place-items:center;padding:20px;color:var(--text-dim);font-size:11px;text-align:center}
+.system-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding:14px 0 2px;border-top:1px solid rgba(255,255,255,.045)}.system-strip span{color:var(--text-dim);font-size:9px}.system-strip span:not(:last-child)::after{content:" · ";margin-left:8px}
+.deal-tabs{display:grid;grid-template-columns:1fr 1fr;max-width:520px;margin:0 auto 18px;padding:5px}.deal-tabs button{border-radius:14px;padding:10px;color:var(--text-dim);font-size:12px;font-weight:700}.deal-tabs button.active{color:var(--text);background:var(--base);box-shadow:5px 5px 10px var(--shadow-d),-5px -5px 10px var(--shadow-l)}
+.price-intro{max-width:700px;margin:-10px 0 18px;color:var(--text-dim);font-size:12px;line-height:1.6}
+.portfolio-tools{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.collection-stage>.grid{margin-top:20px!important}.collection-stage>.grid .hero-metric{min-height:104px;padding:16px}.collection-stage>section.mt-10{margin-top:26px}.collection-stage>section.mt-10>div:first-child h2{font-size:18px}.collection-stage>section.mt-10>div:first-child p{display:none}
+
+@media(max-width:767px){
+  .pokedeal-shell{display:block;min-height:100vh;background:var(--base)}
+  .app-page,.collection-stage{padding:18px 24px 108px}
+  .dashboard-page section{padding:0}
+  .maquette-topbar{margin-bottom:19px}
+  .news-carousel{grid-auto-columns:82%;gap:13px;margin:0 -4px;padding:4px 4px 14px}
+  .news-card{min-height:128px}
+  .deal-results.grid{grid-template-columns:1fr 1fr}
+  .deal-results.list .deal-card{grid-template-columns:92px minmax(0,1fr)}
+  .deal-results.list .deal-card>img,.deal-results.list .deal-card>.image-placeholder{min-height:100%;object-fit:cover}
+}
+@media(max-width:430px){
+  .app-page,.collection-stage{padding-left:24px;padding-right:24px}
+  .maquette-topbar h1{font-size:22px}
+  .stat-row3{gap:9px}.stat-card3{padding:12px 9px}.stat-card3>strong{font-size:13px}
+  .home-deal-scroll{grid-auto-columns:164px}.watch-scroll{grid-auto-columns:164px}
+  .button-primary{padding:10px 12px;font-size:11px}
+  .portfolio-tools .button-secondary{display:none}.portfolio-tools .button-primary{width:44px;height:44px;padding:0;overflow:hidden;color:transparent}.portfolio-tools .button-primary::first-letter{color:#fff}
+}

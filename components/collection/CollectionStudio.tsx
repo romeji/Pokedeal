@@ -115,22 +115,14 @@ export function CollectionStudio() {
 
   return (
     <main className="collection-stage min-h-screen overflow-hidden px-4 pb-16 pt-6 md:px-8 lg:px-12">
-      <header className="relative z-10 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <div className="flex items-center gap-3"><span className="live-orb" /><p className="eyebrow">Collection intelligence</p></div>
-          <h1 className="mt-3 max-w-4xl font-display text-4xl font-bold tracking-[-.05em] sm:text-6xl xl:text-7xl">
-            Ton musée Pokémon,<br /><span className="aurora-text">vivant et valorisé.</span>
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
-            Classeurs libres, master sets cartes ou objets scellés. Chaque acquisition fait évoluer ton portefeuille avec la cotation Cardmarket.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <header className="maquette-topbar relative z-10">
+        <div><span>Vue d&apos;ensemble</span><h1>Portefeuille</h1></div>
+        <div className="portfolio-tools">
           <button className="button-secondary h-12 px-4" onClick={() => downloadBackup("csv")}>↓ CSV</button>
           <button className="button-secondary h-12 px-4" onClick={() => downloadBackup("json")}>↓ Sauvegarde</button>
           <button className="button-secondary h-12 px-4" onClick={() => restoreInput.current?.click()}>↑ Restaurer</button>
           <input ref={restoreInput} type="file" accept="application/json,.json" className="hidden" onChange={restoreBackup} />
-          <button className="button-primary halo-button h-12 px-6" onClick={() => setShowCreate(true)}>＋ Créer un classeur</button>
+          <button className="button-primary h-12 px-6" onClick={() => setShowCreate(true)}>＋ Créer</button>
         </div>
       </header>
       {message && <p className="relative z-10 mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-100">{message}</p>}

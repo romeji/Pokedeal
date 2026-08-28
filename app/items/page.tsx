@@ -2,10 +2,9 @@ import { ItemExplorer } from "@/components/items/ItemExplorer";
 
 export default function ItemsPage() {
   return (
-    <main className="p-5 md:p-10">
-      <p className="eyebrow">Catalogue Cardmarket</p>
-      <h1 className="mt-2 font-display text-4xl font-bold">Recherche de prix</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+    <main className="app-page maquette-page">
+      <header className="maquette-topbar"><div><span>Catalogue Cardmarket</span><h1>Recherche de prix</h1></div><div className="topbar-actions"><a href="/collection/wishlist" className="circle-action" aria-label="Favoris">★</a></div></header>
+      <p className="price-intro">
         Recherche une carte ou un produit Pokémon, consulte son dernier prix disponible
         et ajoute-le à tes favoris pour prioriser les alertes.
       </p>
