@@ -1,7 +1,16 @@
 ﻿Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+$ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
+$launcherLog = Join-Path $projectRoot ".pokedeal-launcher.log"
+
+function Write-LauncherLog([string]$message, [string]$level = "INFO") {
+  $line = "{0} [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"), $level, $message
+  Add-Content -LiteralPath $launcherLog -Value $line -Encoding UTF8
+}
+
+Write-LauncherLog "Ouverture du centre de démarrage (PowerShell $($PSVersionTable.PSVersion))."
 
 $form = New-Object Windows.Forms.Form
 $form.Text = "PokéDeal · Centre de démarrage"
@@ -30,44 +39,68 @@ for($i=0;$i -lt $checks.Count;$i++){ $label=New-Object Windows.Forms.Label; $lab
 $status = New-Object Windows.Forms.Label; $status.Text="Prêt pour la vérification."; $status.SetBounds(34,580,675,28); $form.Controls.Add($status)
 $verify = New-Object Windows.Forms.Button; $verify.Text="Vérifier l'application"; $verify.SetBounds(34,620,315,48); $verify.BackColor=[Drawing.Color]::FromArgb(34,211,238); $verify.ForeColor=[Drawing.Color]::FromArgb(8,15,24); $verify.FlatStyle="Flat"; $form.Controls.Add($verify)
 $start = New-Object Windows.Forms.Button; $start.Text="Démarrer PokéDeal"; $start.SetBounds(394,620,315,48); $start.Enabled=$false; $start.BackColor=[Drawing.Color]::FromArgb(30,41,59); $start.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $start.FlatStyle="Flat"; $form.Controls.Add($start)
-$copyKey = New-Object Windows.Forms.Button; $copyKey.Text="Copier ma clé de connexion PWA"; $copyKey.SetBounds(34,682,675,38); $copyKey.BackColor=[Drawing.Color]::FromArgb(18,29,43); $copyKey.ForeColor=[Drawing.Color]::FromArgb(165,243,252); $copyKey.FlatStyle="Flat"; $form.Controls.Add($copyKey)
+$openLogs = New-Object Windows.Forms.Button; $openLogs.Text="Ouvrir les journaux de démarrage"; $openLogs.SetBounds(34,682,675,38); $openLogs.BackColor=[Drawing.Color]::FromArgb(18,29,43); $openLogs.ForeColor=[Drawing.Color]::FromArgb(165,243,252); $openLogs.FlatStyle="Flat"; $form.Controls.Add($openLogs)
 
-$copyKey.Add_Click({
+$openLogs.Add_Click({
   try {
-    $line=Get-Content -LiteralPath (Join-Path $projectRoot '.env') | Where-Object { $_ -match '^ADMIN_TOKEN=' } | Select-Object -First 1
-    if(!$line){throw 'ADMIN_TOKEN absent. Lance d’abord Vérifier l’application.'}
-    $value=(($line -split '=',2)[1]).Trim().Trim('"')
-    [Windows.Forms.Clipboard]::SetText($value)
-    $status.Text='Clé PWA copiée. Colle-la dans Prix & favoris → Connexion.'
+    if (!(Test-Path -LiteralPath $launcherLog)) { Write-LauncherLog "Journal initialisé depuis l'interface." }
+    Start-Process notepad.exe -ArgumentList $launcherLog
+    $status.Text='Journal de démarrage ouvert.'
   } catch {
     $status.Text=$_.Exception.Message
+    Write-LauncherLog "Impossible d'ouvrir le journal : $($_.Exception.Message)" "ERROR"
   }
 })
 
-function Invoke-Check([int]$index,[scriptblock]$action){$labels[$index].Text="…  $($checks[$index])";[Windows.Forms.Application]::DoEvents();try{& $action;if($LASTEXITCODE -ne 0){throw "Code $LASTEXITCODE"};$labels[$index].Text="✓  $($checks[$index])";$labels[$index].ForeColor=[Drawing.Color]::FromArgb(110,231,183);return $true}catch{$labels[$index].Text="✗  $($checks[$index])";$labels[$index].ForeColor=[Drawing.Color]::FromArgb(251,113,133);$status.Text="$($checks[$index]) : $($_.Exception.Message)";return $false}}
+function Invoke-Check([int]$index,[scriptblock]$action){
+  $name=$checks[$index]
+  $labels[$index].Text="…  $name"
+  [Windows.Forms.Application]::DoEvents()
+  Write-LauncherLog "Vérification : $name"
+  try {
+    $global:LASTEXITCODE=0
+    $output=(& $action 2>&1 | Out-String).Trim()
+    $exitCode=$LASTEXITCODE
+    if($output){Write-LauncherLog $output}
+    if($exitCode -ne 0){throw "Code de sortie $exitCode"}
+    $labels[$index].Text="✓  $name"
+    $labels[$index].ForeColor=[Drawing.Color]::FromArgb(110,231,183)
+    Write-LauncherLog "Vérification réussie : $name" "OK"
+    return $true
+  } catch {
+    $labels[$index].Text="✗  $name"
+    $labels[$index].ForeColor=[Drawing.Color]::FromArgb(251,113,133)
+    $status.Text="$name : $($_.Exception.Message)"
+    Write-LauncherLog "Vérification échouée ($name) : $($_.Exception.Message)" "ERROR"
+    return $false
+  }
+}
 
 $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="Vérifications en cours…"
-  & (Join-Path $PSScriptRoot 'StopPokedealServices.ps1')
+  Write-LauncherLog "Prévol demandé par l'utilisateur."
+  try { & (Join-Path $PSScriptRoot 'StopPokedealServices.ps1') } catch { Write-LauncherLog "Arrêt préalable : $($_.Exception.Message)" "WARN" }
   $steps=@(
-    {node --version | Out-Null; npm --version | Out-Null},
+    {node --version; if($LASTEXITCODE -ne 0){throw "Node.js indisponible"}; npm --version},
     {& (Join-Path $PSScriptRoot 'EnsureRealtimeConfig.ps1')},
-    {docker info | Out-Null},
-    {npm run realtime:up | Out-Null; npm run db:check | Out-Null},
-    {npx prisma migrate deploy | Out-Null},
-    {npm run prisma:seed | Out-Null},
-    {npm run cardmarket:ensure-current | Out-Null},
-    {npm test | Out-Null},
-    {npm run lint | Out-Null},
-    {npm run build | Out-Null}
+    {docker info},
+    {npm run realtime:up; if($LASTEXITCODE -ne 0){throw "Services Docker indisponibles"}; npm run db:check},
+    {npx prisma migrate deploy},
+    {npm run prisma:seed},
+    {npm run cardmarket:ensure-current},
+    {npm test},
+    {npm run lint},
+    {npm run build}
   );$ok=$true;for($i=0;$i -lt $steps.Count;$i++){if(!(Invoke-Check $i $steps[$i])){$ok=$false;break}}
-  if($ok){$status.Text="Tout est valide. PokéDeal peut démarrer.";$start.Enabled=$true;$start.BackColor=[Drawing.Color]::FromArgb(59,130,246);$start.ForeColor=[Drawing.Color]::White}else{$verify.Enabled=$true}
+  if($ok){$status.Text="Tout est valide. PokéDeal peut démarrer.";$start.Enabled=$true;$start.BackColor=[Drawing.Color]::FromArgb(59,130,246);$start.ForeColor=[Drawing.Color]::White;Write-LauncherLog "Prévol entièrement validé." "OK"}else{$verify.Enabled=$true}
 })
 $start.Add_Click({
   $start.Enabled=$false
+  Write-LauncherLog "Démarrage des services demandé."
   try {
     & (Join-Path $PSScriptRoot 'StartPokedealServices.ps1')
   } catch {
     $status.Text=$_.Exception.Message
+    Write-LauncherLog "Démarrage impossible : $($_.Exception.Message)" "ERROR"
     $start.Enabled=$true
     return
   }
@@ -76,22 +109,33 @@ $start.Add_Click({
   $script:launchTimer=New-Object Windows.Forms.Timer
   $script:launchTimer.Interval=1500
   $script:launchTimer.Add_Tick({
+    if(!$script:launchTimer){return}
     $script:launchAttempts++
     try {
       $response=Invoke-WebRequest -Uri "http://localhost:3000/dashboard" -UseBasicParsing -TimeoutSec 2
       if($response.StatusCode -eq 200){
         $script:launchTimer.Stop();$script:launchTimer.Dispose();$script:launchTimer=$null
         $status.Text="Pokedeal est démarré."
+        Write-LauncherLog "Serveur local disponible après $script:launchAttempts tentative(s)." "OK"
         Start-Process "http://localhost:3000/dashboard"
       }
     } catch {
       if($script:launchAttempts -ge 40){
         $script:launchTimer.Stop();$script:launchTimer.Dispose();$script:launchTimer=$null
-        $status.Text="Le serveur n'a pas répondu. Consulte .pokedeal-dev.log."
+        $status.Text="Le serveur n'a pas répondu. Ouvre les journaux de démarrage."
+        Write-LauncherLog "Le serveur local n'a pas répondu après $script:launchAttempts tentative(s)." "ERROR"
         $start.Enabled=$true
       }
     }
   })
   $script:launchTimer.Start()
 })
-[void]$form.ShowDialog()
+try {
+  [void]$form.ShowDialog()
+  Write-LauncherLog "Fermeture normale du centre de démarrage."
+} catch {
+  Write-LauncherLog "Erreur fatale de l'interface : $($_.Exception.ToString())" "FATAL"
+  [Windows.Forms.MessageBox]::Show("Le lanceur PokéDeal a rencontré une erreur. Le journal va s'ouvrir.","PokéDeal",[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+  Start-Process notepad.exe -ArgumentList $launcherLog
+  exit 1
+}

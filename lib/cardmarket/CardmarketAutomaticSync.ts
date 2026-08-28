@@ -39,7 +39,10 @@ export interface CardmarketSyncResult {
 export class CardmarketAutomaticSync {
   private readonly manifestPath: string;
 
-  constructor(private readonly dataDirectory = path.resolve("data", "cardmarket")) {
+  constructor(
+    private readonly dataDirectory = path.resolve("data", "cardmarket"),
+    private readonly downloadTimeoutMs = readDownloadTimeoutMs(),
+  ) {
     this.manifestPath = path.join(this.dataDirectory, "download-state.json");
   }
 
@@ -48,8 +51,11 @@ export class CardmarketAutomaticSync {
     const manifest = await this.readManifest();
     const nextManifest: SyncManifest = { files: { ...manifest.files } };
 
+    console.log("Cardmarket : contrôle du catalogue de cartes…");
     const singles = await this.download("singles", manifest.files.singles);
+    console.log("Cardmarket : contrôle du catalogue des produits scellés…");
     const nonSingles = await this.download("nonSingles", manifest.files.nonSingles);
+    console.log("Cardmarket : contrôle du Price Guide…");
     const prices = await this.download("prices", manifest.files.prices);
 
     nextManifest.files.singles = singles.state;
@@ -109,7 +115,20 @@ export class CardmarketAutomaticSync {
       if (previous?.lastModified) headers.set("If-Modified-Since", previous.lastModified);
     }
 
-    const response = await fetch(definition.url, { headers, redirect: "error" });
+    let response: Response;
+    try {
+      response = await fetch(definition.url, {
+        headers,
+        redirect: "error",
+        signal: AbortSignal.timeout(this.downloadTimeoutMs),
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.name : "erreur réseau";
+      throw new Error(
+        `Téléchargement Cardmarket ${definition.fileName} interrompu après ${Math.round(this.downloadTimeoutMs / 1_000)} s (${reason})`,
+        { cause: error },
+      );
+    }
     if (response.status === 304) {
       const metadata = await this.validateFile(destination, definition.rootArray);
       return { changed: false, path: destination, ...metadata, state: previous ?? {} };
@@ -173,4 +192,9 @@ export class CardmarketAutomaticSync {
       return false;
     }
   }
+}
+
+function readDownloadTimeoutMs() {
+  const value = Number(process.env.CARDMARKET_DOWNLOAD_TIMEOUT_MS ?? 120_000);
+  return Number.isFinite(value) && value >= 10_000 && value <= 600_000 ? value : 120_000;
 }

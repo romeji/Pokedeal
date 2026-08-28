@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/database/prisma";
 import { assertProviderApproved } from "@/lib/compliance/complianceGate";
 
@@ -110,10 +111,10 @@ export class CardmarketPriceImporter {
     let snapshotsCreated = 0;
     let skippedUnknownProduct = 0;
 
-    const BATCH_SIZE = 500;
+    const BATCH_SIZE = 2_000;
     for (let i = 0; i < file.priceGuides.length; i += BATCH_SIZE) {
       const batch = file.priceGuides.slice(i, i + BATCH_SIZE);
-      const creates = [];
+      const creates: Prisma.PriceSnapshotCreateManyInput[] = [];
       for (const entry of batch) {
         const productId = productIdByCardmarketId.get(entry.idProduct);
         if (!productId) {
@@ -122,33 +123,30 @@ export class CardmarketPriceImporter {
           skippedUnknownProduct++;
           continue;
         }
-        creates.push(
-          prisma.priceSnapshot.create({
-            data: {
-              productId,
-              sourceId: source.id,
-              currency: "EUR",
-              lowPrice: entry.low,
-              averagePrice: entry.avg,
-              trendPrice: entry.trend,
-              avg1Price: entry.avg1,
-              avg7Price: entry.avg7,
-              avg30Price: entry.avg30,
-              lowPriceHolo: entry["low-holo"],
-              averagePriceHolo: entry["avg-holo"],
-              trendPriceHolo: entry["trend-holo"],
-              avg1PriceHolo: entry["avg1-holo"],
-              avg7PriceHolo: entry["avg7-holo"],
-              avg30PriceHolo: entry["avg30-holo"],
-              retrievedAt: sourceCreatedAt,
-            },
-          })
-        );
+        creates.push({
+          productId,
+          sourceId: source.id,
+          currency: "EUR",
+          lowPrice: entry.low,
+          averagePrice: entry.avg,
+          trendPrice: entry.trend,
+          avg1Price: entry.avg1,
+          avg7Price: entry.avg7,
+          avg30Price: entry.avg30,
+          lowPriceHolo: entry["low-holo"],
+          averagePriceHolo: entry["avg-holo"],
+          trendPriceHolo: entry["trend-holo"],
+          avg1PriceHolo: entry["avg1-holo"],
+          avg7PriceHolo: entry["avg7-holo"],
+          avg30PriceHolo: entry["avg30-holo"],
+          retrievedAt: sourceCreatedAt,
+        });
       }
       if (creates.length > 0) {
-        await prisma.$transaction(creates);
-        snapshotsCreated += creates.length;
+        const result = await prisma.priceSnapshot.createMany({ data: creates });
+        snapshotsCreated += result.count;
       }
+      console.log(`Cardmarket : ${Math.min(i + batch.length, file.priceGuides.length)}/${file.priceGuides.length} cotations traitées.`);
     }
 
     return {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/auth/user";
 import { prisma } from "@/lib/database/prisma";
+import { INACTIVE_LISTING_STATUSES, INACTIVE_OPPORTUNITY_STATUSES } from "@/lib/deals/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,11 @@ export async function GET(request: Request) {
   const condition = url.searchParams.get("condition")?.trim();
   const decision = url.searchParams.get("decision")?.trim();
   const since = url.searchParams.get("since");
-  const viewStatus = ["SCORED", "MATCHED", "ANALYZED", "NEW"];
   const where = {
     estimatedProfit: { gt: 0 },
+    status: { notIn: [...INACTIVE_OPPORTUNITY_STATUSES] },
     listing: {
-      status: { in: viewStatus },
+      status: { notIn: [...INACTIVE_LISTING_STATUSES] },
       ...(country ? { sellerCountry: { equals: country, mode: "insensitive" as const } } : {}),
       ...(condition ? { itemCondition: { contains: condition, mode: "insensitive" as const } } : {}),
       ...(since ? { firstSeenAt: { gte: new Date(since) } } : {}),
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
       category: row.score?.category ?? null,
       confidence: row.score?.confidenceScore ?? null,
       risk: row.score?.riskScore ?? null,
+      listingStatus: row.listing.status,
       country: row.listing.sellerCountry,
       condition: row.listing.itemCondition,
       publishedAt: row.listing.publishedAt ?? row.listing.firstSeenAt,
