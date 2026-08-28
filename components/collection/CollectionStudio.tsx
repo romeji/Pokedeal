@@ -3,6 +3,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 
 type BinderType = "GLOBAL" | "CUSTOM" | "MASTER_CARDS" | "MASTER_ITEMS";
 type Binder = {
@@ -112,36 +113,26 @@ export function CollectionStudio() {
   const portfolioValue = binders.reduce((sum, binder) => sum + binder.value, 0);
   const itemCount = binders.reduce((sum, binder) => sum + binder.totalItems, 0);
   const completed = binders.filter((binder) => binder.progress === 100).length;
+  const sealedCount = binders.filter((binder) => binder.type === "MASTER_ITEMS").reduce((sum, binder) => sum + binder.totalItems, 0);
+  const cardCount = Math.max(0, itemCount - sealedCount);
+  const historicalValues = binders.flatMap((binder) => binder.history.map((point) => point.value));
+  const lowValue = historicalValues.length ? Math.min(...historicalValues) : portfolioValue;
+  const highValue = historicalValues.length ? Math.max(...historicalValues, portfolioValue) : portfolioValue;
+  const averageValue = historicalValues.length ? historicalValues.reduce((sum, value) => sum + value, 0) / historicalValues.length : portfolioValue;
 
   return (
-    <main className="collection-stage min-h-screen overflow-hidden px-4 pb-16 pt-6 md:px-8 lg:px-12">
+    <main className="app-page maquette-page portfolio-page">
       <header className="maquette-topbar relative z-10">
         <div><span>Vue d&apos;ensemble</span><h1>Portefeuille</h1></div>
-        <div className="portfolio-tools">
-          <button className="button-secondary h-12 px-4" onClick={() => downloadBackup("csv")}>↓ CSV</button>
-          <button className="button-secondary h-12 px-4" onClick={() => downloadBackup("json")}>↓ Sauvegarde</button>
-          <button className="button-secondary h-12 px-4" onClick={() => restoreInput.current?.click()}>↑ Restaurer</button>
-          <input ref={restoreInput} type="file" accept="application/json,.json" className="hidden" onChange={restoreBackup} />
-          <button className="button-primary h-12 px-6" onClick={() => setShowCreate(true)}>＋ Créer</button>
-        </div>
+        <div className="topbar-actions"><button className="circle-action" onClick={() => setShowCreate(true)} aria-label="Créer un classeur">＋</button></div>
       </header>
       {message && <p className="relative z-10 mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-100">{message}</p>}
 
-      <section className="relative z-10 mt-8 grid gap-3 sm:grid-cols-3">
-        <HeroMetric label="Valeur du portefeuille" value={euro(portfolioValue)} detail="Cotation actuelle" tone="emerald" />
-        <HeroMetric label="Objets collectionnés" value={itemCount.toLocaleString("fr-FR")} detail={`${binders.length} classeur${binders.length > 1 ? "s" : ""}`} tone="cyan" />
-        <HeroMetric label="Master sets terminés" value={`${completed}`} detail="Progression synchronisée" tone="violet" />
-      </section>
-
-      <section className="relative z-10 mt-10">
-        <div className="mb-4 flex items-center justify-between"><div><p className="eyebrow">Tes univers</p><h2 className="mt-1 font-display text-2xl font-semibold">Continuer la collection</h2></div><span className="text-xs text-slate-500">Glisse pour explorer →</span></div>
-        {binders.length ? (
-          <div className="no-scrollbar flex snap-x gap-5 overflow-x-auto pb-5">
-            {binders.map((binder) => <BinderCover key={binder.id} binder={binder} active={binder.id === selectedId} onClick={() => chooseBinder(binder.id)} />)}
-            <button onClick={() => setShowCreate(true)} className="min-h-64 min-w-48 snap-start rounded-[2rem] border border-dashed border-slate-600/50 bg-slate-900/20 text-slate-500 transition hover:border-cyan-400/50 hover:text-cyan-200">＋<span className="mt-2 block text-sm">Nouvel univers</span></button>
-          </div>
-        ) : <EmptyCollection onCreate={() => setShowCreate(true)} />}
-      </section>
+      <section className="summary-row"><div className="summary-card neu-card"><span className="num">{cardCount}</span><span className="lab">Cartes</span></div><div className="summary-card neu-card"><span className="num">{sealedCount}</span><span className="lab">Items</span></div><div className="summary-card neu-card"><span className="num">{completed}</span><span className="lab">Terminés</span></div></section>
+      <section className="value-card neu-card"><span className="lab">Valeur totale</span><strong className="amount">{euro(portfolioValue)}</strong><span className="delta">Cotation Cardmarket actuelle</span><div className="value-chart"><svg viewBox="0 0 320 100" preserveAspectRatio="none"><defs><linearGradient id="walletFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5b8def" stopOpacity=".4"/><stop offset="1" stopColor="#5b8def" stopOpacity="0"/></linearGradient></defs><polyline points="0,76 26,69 52,72 78,61 104,64 130,47 156,51 182,36 208,40 234,26 260,30 286,17 320,10" fill="none" stroke="#5b8def" strokeWidth="3" strokeLinecap="round"/><polygon points="0,76 26,69 52,72 78,61 104,64 130,47 156,51 182,36 208,40 234,26 260,30 286,17 320,10 320,100 0,100" fill="url(#walletFill)"/></svg></div><div className="range-stats"><div><span>Bas</span><strong>{euro(lowValue)}</strong></div><div><span>Moyenne</span><strong>{euro(averageValue)}</strong></div><div><span>Haut</span><strong>{euro(highValue)}</strong></div></div></section>
+      <section className="action-row"><Link href="/collection/sales" className="action-card neu-card"><span className="ico">↗</span><strong>Ventes</strong><small>Historique et P&amp;L</small></Link><Link href="/items" className="action-card neu-card"><span className="ico">＋</span><strong>Ajouter</strong><small>Carte ou item coté</small></Link><Link href="/collection/blocks" className="action-card neu-card"><span className="ico">▦</span><strong>Master set</strong><small>Par bloc et série</small></Link><button onClick={() => setShowCreate(true)} className="action-card neu-card"><span className="ico">▤</span><strong>Classeur</strong><small>Créer une collection</small></button></section>
+      <section className="binder-section"><div className="section-heading"><h2>Mes classeurs</h2><button onClick={() => setShowCreate(true)}>Ajouter →</button></div>{binders.length?<div className="binder-list">{binders.map((binder)=><button key={binder.id} onClick={()=>void chooseBinder(binder.id)} className={`binder-row ${binder.id===selectedId?"active":""}`}><span className="binder-mini-cover">{binder.coverImageUrl?<img src={binder.coverImageUrl} alt=""/>:TYPE_META[binder.type].icon}</span><span className="binder-info"><strong>{binder.name}</strong><small>{TYPE_META[binder.type].label}{binder.progress!==null?` · ${binder.progress}%`:""}</small></span><span className="binder-value"><strong>{euro(binder.value)}</strong><small>{binder.totalItems} élément(s)</small></span></button>)}</div>:<EmptyCollection onCreate={() => setShowCreate(true)} />}</section>
+      <section className="portfolio-utilities"><button onClick={() => downloadBackup("csv")}>↓ CSV</button><button onClick={() => downloadBackup("json")}>↓ Sauvegarder</button><button onClick={() => restoreInput.current?.click()}>↑ Restaurer</button><input ref={restoreInput} type="file" accept="application/json,.json" className="hidden" onChange={restoreBackup} /></section>
 
       {detail && <BinderWorkspace detail={detail} busy={busy} refresh={refresh} />}
       {showCreate && <CreateBinder close={() => setShowCreate(false)} created={async (id) => { setShowCreate(false); await loadBinders(id); }} />}
@@ -187,7 +178,7 @@ function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy
 
   const progress = detail.binder.target ? Math.round((detail.entries.length / detail.binder.target) * 100) : null;
   return (
-    <section className="relative z-10 mt-8 overflow-hidden rounded-[2.25rem] border border-white/10 bg-slate-950/40 shadow-2xl shadow-black/40 backdrop-blur-2xl">
+    <section className="binder-workspace relative z-10 mt-8 overflow-hidden rounded-[2.25rem] border border-white/10 bg-slate-950/40 shadow-2xl shadow-black/40 backdrop-blur-2xl">
       <div className="binder-hero relative overflow-hidden p-6 md:p-9" style={{ "--binder-accent": detail.binder.accentColor } as React.CSSProperties}>
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-center gap-5">
@@ -311,10 +302,6 @@ function PortfolioPanel({ detail }: { detail: BinderDetail }) {
     <div className="rounded-3xl border border-white/5 bg-slate-950/50 p-6"><div className="flex items-end justify-between"><div><p className="eyebrow">Valeur vivante</p><strong className="mt-2 block text-4xl text-emerald-300">{euro(detail.value)}</strong></div><span className="text-xs text-slate-500">Cardmarket · EUR</span></div><div className="mt-10 flex h-48 items-end gap-2">{(detail.history.length ? detail.history : [{ value: detail.value, recordedAt: new Date().toISOString() }]).map((point, index) => <div key={`${point.recordedAt}-${index}`} className="group relative flex-1 rounded-t-lg bg-gradient-to-t from-cyan-500/30 to-emerald-300/80" style={{ height: `${Math.max(8, (point.value / max) * 100)}%` }}><span className="absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs group-hover:block">{euro(point.value)}</span></div>)}</div></div>
     <div className="grid gap-4"><HeroMetric label="Prix d’achat saisi" value={euro(invested)} detail="Coût de revient" tone="cyan" /><HeroMetric label="Plus-value latente" value={gain === null ? "À renseigner" : euro(gain)} detail={gain === null ? "Ajoute tes prix d’achat" : `${gain >= 0 ? "+" : ""}${((gain / invested) * 100).toFixed(1)} %`} tone={gain !== null && gain < 0 ? "violet" : "emerald"} /></div>
   </div>;
-}
-
-function BinderCover({ binder, active, onClick }: { binder: Binder; active: boolean; onClick: () => void }) {
-  return <button onClick={onClick} className={`binder-cover group relative min-h-72 min-w-56 snap-start overflow-hidden text-left ${active ? "active" : ""}`} style={{ "--binder-accent": binder.accentColor } as React.CSSProperties}><div className="absolute inset-0 binder-glow" /><div className="relative flex h-full flex-col p-5"><div className="flex items-start justify-between"><span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white/70">{TYPE_META[binder.type].label}</span>{binder.progress !== null && <span className="progress-orb" style={{ "--progress": `${binder.progress * 3.6}deg` } as React.CSSProperties}><b>{binder.progress}%</b></span>}</div><div className="flex flex-1 items-center justify-center py-5">{binder.coverImageUrl ? <img src={binder.coverImageUrl} alt="" className="max-h-24 max-w-40 object-contain drop-shadow-2xl transition duration-500 group-hover:scale-110" /> : <span className="text-6xl opacity-70">{TYPE_META[binder.type].icon}</span>}</div><p className="text-xs text-white/50">{binder.setName || TYPE_META[binder.type].kicker}</p><h3 className="mt-1 line-clamp-2 font-display text-xl font-bold">{binder.name}</h3><div className="mt-4 flex items-end justify-between"><span className="text-xs text-white/50">{binder.owned}{binder.target ? ` / ${binder.target}` : " pièces"}</span><strong className="text-emerald-200">{euro(binder.value)}</strong></div></div></button>;
 }
 
 function HeroMetric({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: "emerald" | "cyan" | "violet" }) { return <div className={`hero-metric tone-${tone}`}><span className="text-xs text-slate-500">{label}</span><strong className="mt-2 block font-display text-2xl tracking-tight md:text-3xl">{value}</strong><small className="mt-2 block text-slate-500">{detail}</small></div>; }

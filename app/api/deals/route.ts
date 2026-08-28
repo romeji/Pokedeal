@@ -14,9 +14,16 @@ export async function GET(request: Request) {
   const country = url.searchParams.get("country")?.trim();
   const condition = url.searchParams.get("condition")?.trim();
   const decision = url.searchParams.get("decision")?.trim();
+  const scope = url.searchParams.get("scope")?.trim();
+  const sort = url.searchParams.get("sort")?.trim();
+  const minScore = Math.max(0, Number(url.searchParams.get("minScore")) || 0);
+  const minRoi = Math.max(0, Number(url.searchParams.get("minRoi")) || 0);
+  if (scope === "treated" && !user) return NextResponse.json({ page: 1, pageSize, total: 0, pages: 1, rows: [] });
   const since = url.searchParams.get("since");
   const where = {
     estimatedProfit: { gt: 0 },
+    ...(minRoi ? { roi: { gte: minRoi } } : {}),
+    ...(minScore ? { score: { is: { score: { gte: minScore } } } } : {}),
     status: { notIn: [...INACTIVE_OPPORTUNITY_STATUSES] },
     listing: {
       status: { notIn: [...INACTIVE_LISTING_STATUSES] },
@@ -30,7 +37,8 @@ export async function GET(request: Request) {
         { itemCondition: { contains: keyword, mode: "insensitive" as const } },
       ] } : {}),
     },
-    ...(user && decision ? { decisions: { some: { userId: user.id, status: decision } } } : {}),
+    ...(user && scope === "treated" ? { decisions: { some: { userId: user.id, status: { in: ["VALIDATED", "BOUGHT", "IGNORED"] } } } } :
+      user && decision ? { decisions: { some: { userId: user.id, status: decision } } } : {}),
   };
   const [total, rows] = await Promise.all([
     prisma.opportunity.count({ where }),
@@ -41,7 +49,7 @@ export async function GET(request: Request) {
         score: true,
         decisions: user ? { where: { userId: user.id }, take: 1 } : false,
       },
-      orderBy: [{ score: { score: "desc" } }, { updatedAt: "desc" }],
+      orderBy: sort === "roi" ? [{ roi: "desc" }, { updatedAt: "desc" }] : sort === "recent" ? [{ updatedAt: "desc" }] : [{ score: { score: "desc" } }, { updatedAt: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
