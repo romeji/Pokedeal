@@ -18,7 +18,7 @@ export default function LoginPage() {
       <p className="eyebrow mt-6">Compte PokéDeal</p>
       <h1 className="mt-2 font-display text-3xl font-bold">Ta collection, partout avec toi.</h1>
       <p className="mt-3 text-sm leading-6 text-slate-400">Connecte-toi pour garder tes favoris, tes classeurs et la valeur de ton portefeuille synchronisés entre la PWA et le web.</p>
-      <button disabled={!googleConfigured} className="button-primary mt-7 flex h-12 w-full items-center justify-center gap-3 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => signIn("google", { callbackUrl: "/collection" })}>
+      <button disabled={!googleConfigured} className="button-primary mt-7 flex h-12 w-full items-center justify-center gap-3 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => signIn("google", { callbackUrl: "/onboarding" })}>
         <span className="grid h-7 w-7 place-items-center rounded-full bg-white font-bold text-blue-600">G</span> {googleConfigured === false ? "Google à configurer" : "Continuer avec Google"}
       </button>
       {googleConfigured === false && <p className="mt-3 text-xs text-amber-300">La connexion sera disponible dès que les trois variables Google seront ajoutées sur Vercel.</p>}

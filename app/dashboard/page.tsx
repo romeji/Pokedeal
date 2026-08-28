@@ -20,7 +20,7 @@ export default async function DashboardPage() {
     prisma.cardmarketProduct.count().catch(() => 0),
     prisma.priceSnapshot.count().catch(() => 0),
     prisma.listing.count().catch(() => 0),
-    prisma.opportunity.findMany({ where: { estimatedProfit: { gt: 0 }, status: { notIn: [...INACTIVE_OPPORTUNITY_STATUSES] }, listing: { status: { notIn: [...INACTIVE_LISTING_STATUSES] } } }, include: { listing: { include: { images: { take: 1 } } }, score: true }, orderBy: [{ score: { score: "desc" } }, { updatedAt: "desc" }], take: 8 }).catch(() => []),
+    prisma.opportunity.findMany({ where: { estimatedProfit: { gt: 0 }, roi: { lte: 150 }, status: { notIn: [...INACTIVE_OPPORTUNITY_STATUSES] }, score: { is: { confidenceScore: { gte: 0.72 }, riskScore: { lte: 0.65 } } }, listing: { status: { notIn: [...INACTIVE_LISTING_STATUSES] }, matches: { some: { confidence: { gte: 0.82 } } }, items: { none: { needsManualReview: true } } } }, include: { listing: { include: { images: { take: 1 } } }, score: true }, orderBy: [{ score: { score: "desc" } }, { updatedAt: "desc" }], take: 8 }).catch(() => []),
     userId ? prisma.collectionEntry.findMany({ where: { quantity: { gt: 0 }, binder: { userId } }, include: { product: { include: { priceSnapshots: { orderBy: { retrievedAt: "desc" }, take: 40 } } } } }).catch(() => []) : Promise.resolve([]),
     userId ? prisma.collectionSale.findMany({ where: { userId, soldAt: { gte: startMonth } } }).catch(() => []) : Promise.resolve([]),
     userId ? prisma.opportunityDecision.count({ where: { userId, status: { in: ["VALIDATED", "BOUGHT"] }, updatedAt: { gte: startMonth } } }).catch(() => 0) : Promise.resolve(0),

@@ -62,8 +62,12 @@ export class NotificationNotifierWorker {
         result.suppressedByRules++;
         continue;
       }
+      if ((opportunity.roi ?? 0) > 150 || opportunity.score.confidenceScore < 0.72 || opportunity.score.riskScore > 0.65) {
+        result.suppressedByRules++;
+        continue;
+      }
       const productIds = opportunity.listing.matches.map((match) => match.productId);
-      if (new Set(productIds).size !== productIds.length || opportunity.listing.matches.some((match) => match.confidence < 0.65)) {
+      if (new Set(productIds).size !== productIds.length || opportunity.listing.matches.some((match) => match.confidence < 0.82)) {
         result.suppressedByRules++;
         continue;
       }

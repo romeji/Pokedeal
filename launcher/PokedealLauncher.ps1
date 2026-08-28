@@ -32,7 +32,7 @@ $subtitle.Text = "Toutes les vérifications doivent être validées avant le lan
 $subtitle.ForeColor = [Drawing.Color]::FromArgb(148,163,184)
 $subtitle.SetBounds(34,72,680,28); $form.Controls.Add($subtitle)
 
-$checks = @("Node.js et npm","Fichier .env","Docker Desktop","PostgreSQL partagé","Migrations Prisma","Données de conformité","Fichiers Cardmarket à jour","Tests automatiques","Qualité du code","Build de production")
+$checks = @("Node.js et npm","Fichier .env","Docker / temps réel local","PostgreSQL partagé","Migrations Prisma","Données de conformité","Fichiers Cardmarket à jour","Tests automatiques","Qualité du code","Build de production")
 $labels = @()
 for($i=0;$i -lt $checks.Count;$i++){ $label=New-Object Windows.Forms.Label; $label.Text="○  $($checks[$i])"; $label.BackColor=[Drawing.Color]::FromArgb(18,29,43); $label.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $label.Padding=New-Object Windows.Forms.Padding(14,9,8,8); $label.SetBounds(34,(112+$i*46),675,37); $form.Controls.Add($label); $labels += $label }
 
@@ -76,14 +76,76 @@ function Invoke-Check([int]$index,[scriptblock]$action){
   }
 }
 
+function Get-DatabaseMode {
+  $candidate = @(".env.local", ".env") | ForEach-Object { Join-Path $projectRoot $_ } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+  if (!$candidate) { return "unknown" }
+  $line = Get-Content -LiteralPath $candidate | Where-Object { $_ -match '^DATABASE_URL=' } | Select-Object -First 1
+  if (!$line) { return "unknown" }
+  $value = (($line -split '=', 2)[1]).Trim().Trim('"')
+  try {
+    $hostName = ([Uri]$value).Host
+    if ($hostName -in @("localhost", "127.0.0.1", "db")) { return "local" }
+    if ($hostName) { return "cloud" }
+  } catch { return "unknown" }
+  return "unknown"
+}
+
+function Test-DockerReady {
+  if (!(Get-Command docker -ErrorAction SilentlyContinue)) { return $false }
+  try {
+    $probe = Start-Process -FilePath "docker.exe" -ArgumentList "info","--format","{{.ServerVersion}}" -WindowStyle Hidden -PassThru
+    if (!$probe.WaitForExit(4000)) {
+      $probe.Kill()
+      Write-LauncherLog "Le moteur Docker ne répond pas après 4 secondes." "WARN"
+      return $false
+    }
+    return $probe.ExitCode -eq 0
+  } catch {
+    Write-LauncherLog "Test Docker impossible : $($_.Exception.Message)" "WARN"
+    return $false
+  }
+}
+
+function Start-DockerIfAvailable {
+  if (Test-DockerReady) { return $true }
+  $desktop = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+  if (!(Test-Path -LiteralPath $desktop)) { return $false }
+  Write-LauncherLog "Docker Desktop est installé mais arrêté : tentative de démarrage." "WARN"
+  Start-Process -FilePath $desktop -WindowStyle Hidden
+  for ($attempt = 0; $attempt -lt 15; $attempt++) {
+    Start-Sleep -Seconds 2
+    [Windows.Forms.Application]::DoEvents()
+    if (Test-DockerReady) { return $true }
+  }
+  return $false
+}
+
 $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="Vérifications en cours…"
   Write-LauncherLog "Prévol demandé par l'utilisateur."
   try { & (Join-Path $PSScriptRoot 'StopPokedealServices.ps1') } catch { Write-LauncherLog "Arrêt préalable : $($_.Exception.Message)" "WARN" }
   $steps=@(
     {node --version; if($LASTEXITCODE -ne 0){throw "Node.js indisponible"}; npm --version},
     {& (Join-Path $PSScriptRoot 'EnsureRealtimeConfig.ps1')},
-    {docker info},
-    {npm run realtime:up; if($LASTEXITCODE -ne 0){throw "Services Docker indisponibles"}; npm run db:check},
+    {
+      $databaseMode = Get-DatabaseMode
+      $dockerReady = Start-DockerIfAvailable
+      if (!$dockerReady -and $databaseMode -eq "local") { throw "Docker Desktop doit être démarré pour la base locale." }
+      if (!$dockerReady) { Write-Output "Docker indisponible : démarrage en mode Neon. Seul le pont Vintrack local sera désactivé." }
+      else { Write-Output "Docker est prêt pour le pont temps réel Vintrack." }
+      $global:LASTEXITCODE = 0
+    },
+    {
+      if ((Get-DatabaseMode) -eq "local") {
+        npm run realtime:up
+        if($LASTEXITCODE -ne 0){throw "Services Docker indisponibles"}
+      } elseif (Test-DockerReady) {
+        npm run realtime:up
+        if($LASTEXITCODE -ne 0){Write-Output "Pont Vintrack Docker non démarré ; la base Neon reste disponible.";$global:LASTEXITCODE=0}
+      } else {
+        Write-Output "Base Neon sélectionnée : aucun conteneur PostgreSQL requis."
+      }
+      npm run db:check
+    },
     {npx prisma migrate deploy},
     {npm run prisma:seed},
     {npm run cardmarket:ensure-current},

@@ -74,6 +74,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const entries = binder.entries.map((entry) => ({
     id: entry.id,
+    productId: entry.productId,
     externalId: entry.externalId,
     name: entry.name,
     imageUrl: entry.imageUrl,

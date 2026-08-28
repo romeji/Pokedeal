@@ -38,7 +38,13 @@ export class OpportunityScoringWorker {
           continue;
         }
 
-        const matchedItems: MatchedItem[] = listing.matches.filter((match) => match.confidence >= 0.65).map((m) => ({
+        if (listing.items.some((item) => item.needsManualReview || (item.confidenceScore ?? 0) < 0.75)) {
+          await prisma.listing.update({ where: { id: listing.id }, data: { status: "REVIEW_REQUIRED", filterReason: "Identification visuelle à confirmer manuellement" } });
+          skipped++;
+          continue;
+        }
+
+        const matchedItems: MatchedItem[] = listing.matches.filter((match) => match.confidence >= 0.82).map((m) => ({
           cardmarketProductId: m.productId,
           matchConfidence: m.confidence,
         }));
@@ -54,6 +60,11 @@ export class OpportunityScoringWorker {
             where: { id: listing.id },
             data: { status: "PRICE_UNAVAILABLE", filterReason: "Prix Cardmarket indisponible" },
           });
+          skipped++;
+          continue;
+        }
+        if (calculation.roi > 150 || calculation.probableValue > Number(listing.price) * 3.5) {
+          await prisma.listing.update({ where: { id: listing.id }, data: { status: "REVIEW_REQUIRED", filterReason: "Écart de prix anormal : vérification manuelle requise" } });
           skipped++;
           continue;
         }

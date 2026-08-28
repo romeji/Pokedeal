@@ -22,14 +22,16 @@ export async function GET(request: Request) {
   const since = url.searchParams.get("since");
   const where = {
     estimatedProfit: { gt: 0 },
-    ...(minRoi ? { roi: { gte: minRoi } } : {}),
-    ...(minScore ? { score: { is: { score: { gte: minScore } } } } : {}),
+    roi: { ...(minRoi ? { gte: minRoi } : {}), lte: 150 },
+    score: { is: { ...(minScore ? { score: { gte: minScore } } : {}), confidenceScore: { gte: 0.72 }, riskScore: { lte: 0.65 } } },
     status: { notIn: [...INACTIVE_OPPORTUNITY_STATUSES] },
     listing: {
       status: { notIn: [...INACTIVE_LISTING_STATUSES] },
       ...(country ? { sellerCountry: { equals: country, mode: "insensitive" as const } } : {}),
       ...(condition ? { itemCondition: { contains: condition, mode: "insensitive" as const } } : {}),
       ...(since ? { firstSeenAt: { gte: new Date(since) } } : {}),
+      matches: { some: { confidence: { gte: 0.82 } } },
+      items: { none: { needsManualReview: true } },
       ...(keyword ? { OR: [
         { title: { contains: keyword, mode: "insensitive" as const } },
         { description: { contains: keyword, mode: "insensitive" as const } },
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
     prisma.opportunity.findMany({
       where,
       include: {
-        listing: { include: { images: { take: 1 } } },
+        listing: { include: { images: { take: 1 }, matches: { orderBy: { confidence: "desc" }, take: 1, include: { product: { select: { id: true, name: true } } } } } },
         score: true,
         decisions: user ? { where: { userId: user.id }, take: 1 } : false,
       },
@@ -75,6 +77,9 @@ export async function GET(request: Request) {
       condition: row.listing.itemCondition,
       publishedAt: row.listing.publishedAt ?? row.listing.firstSeenAt,
       decision: Array.isArray(row.decisions) ? row.decisions[0]?.status ?? "TO_REVIEW" : "TO_REVIEW",
+      productId: row.listing.matches[0]?.product.id ?? null,
+      productName: row.listing.matches[0]?.product.name ?? null,
+      matchConfidence: row.listing.matches[0]?.confidence ?? null,
     })),
   });
 }

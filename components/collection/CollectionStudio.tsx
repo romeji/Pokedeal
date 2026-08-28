@@ -12,19 +12,20 @@ type Binder = {
   target: number | null; progress: number | null; value: number; updatedAt: string;
   history: Array<{ value: number; recordedAt: string }>;
 };
-type SetOption = { id: string; name: string; logo?: string; cardCount: { total: number; official: number } };
+type BlockOption = { id: string; name: string; logo: string | null; releaseDate: string | null; setCount: number };
+type SetOption = { id: string; name: string; logo: string | null; releaseDate: string | null; total: number };
 type Target = {
   id: string; name: string; number?: string; imageUrl?: string | null; owned: boolean;
   kind: "CARD" | "ITEM"; productKind?: string; price?: number;
 };
 type Entry = Target & {
-  externalId: string; variant: string; condition: string; quantity: number;
+  externalId: string; productId?: string | null; variant: string; condition: string; quantity: number;
   purchasePrice: number | null; manualValue: number | null; unitValue: number; updatedAt: string;
   language: string; notes: string | null; grader: string | null; grade: string | null;
   certification: string | null; page: number | null; row: number | null; column: number | null;
 };
 type Activity = { id: string; action: string; entryName: string | null; details: unknown; createdAt: string };
-type BinderDetail = {
+export type BinderDetail = {
   binder: Pick<Binder, "id" | "name" | "description" | "type" | "setName" | "coverImageUrl" | "accentColor" | "target">;
   entries: Entry[]; targets: Target[]; value: number; history: Array<{ value: number; recordedAt: string }>;
   activities: Activity[];
@@ -41,28 +42,19 @@ const TYPE_META: Record<BinderType, { label: string; kicker: string; icon: strin
 export function CollectionStudio() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [binders, setBinders] = useState<Binder[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<BinderDetail | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [createdBinder, setCreatedBinder] = useState<{ id: string; setId: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [googleConfigured, setGoogleConfigured] = useState(false);
   const restoreInput = useRef<HTMLInputElement>(null);
 
-  async function loadBinders(preferredId?: string) {
+  async function loadBinders() {
     const response = await fetch("/api/collections", { cache: "no-store" });
     if (response.status === 401) { setAuthenticated(false); return; }
     if (!response.ok) throw new Error("Portefeuille indisponible");
     const data = (await response.json()) as Binder[];
     setBinders(data);
-    const id = preferredId ?? selectedId ?? data[0]?.id;
-    if (id) { setSelectedId(id); await loadDetail(id); }
-  }
-
-  async function loadDetail(id: string) {
-    const response = await fetch(`/api/collections/${id}`, { cache: "no-store" });
-    if (!response.ok) throw new Error("Classeur indisponible");
-    setDetail((await response.json()) as BinderDetail);
   }
 
   useEffect(() => {
@@ -78,15 +70,6 @@ export function CollectionStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function chooseBinder(id: string) {
-    setSelectedId(id); setBusy(true);
-    try { await loadDetail(id); } finally { setBusy(false); }
-  }
-
-  async function refresh() {
-    if (!selectedId) return;
-    await Promise.all([loadBinders(selectedId), loadDetail(selectedId)]);
-  }
 
   function downloadBackup(format: "json" | "csv") {
     window.location.assign(`/api/collections/backup${format === "csv" ? "?format=csv" : ""}`);
@@ -131,16 +114,16 @@ export function CollectionStudio() {
       <section className="summary-row"><div className="summary-card neu-card"><span className="num">{cardCount}</span><span className="lab">Cartes</span></div><div className="summary-card neu-card"><span className="num">{sealedCount}</span><span className="lab">Items</span></div><div className="summary-card neu-card"><span className="num">{completed}</span><span className="lab">Terminés</span></div></section>
       <section className="value-card neu-card"><span className="lab">Valeur totale</span><strong className="amount">{euro(portfolioValue)}</strong><span className="delta">Cotation Cardmarket actuelle</span><div className="value-chart"><svg viewBox="0 0 320 100" preserveAspectRatio="none"><defs><linearGradient id="walletFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5b8def" stopOpacity=".4"/><stop offset="1" stopColor="#5b8def" stopOpacity="0"/></linearGradient></defs><polyline points="0,76 26,69 52,72 78,61 104,64 130,47 156,51 182,36 208,40 234,26 260,30 286,17 320,10" fill="none" stroke="#5b8def" strokeWidth="3" strokeLinecap="round"/><polygon points="0,76 26,69 52,72 78,61 104,64 130,47 156,51 182,36 208,40 234,26 260,30 286,17 320,10 320,100 0,100" fill="url(#walletFill)"/></svg></div><div className="range-stats"><div><span>Bas</span><strong>{euro(lowValue)}</strong></div><div><span>Moyenne</span><strong>{euro(averageValue)}</strong></div><div><span>Haut</span><strong>{euro(highValue)}</strong></div></div></section>
       <section className="action-row"><Link href="/collection/sales" className="action-card neu-card"><span className="ico">↗</span><strong>Ventes</strong><small>Historique et P&amp;L</small></Link><Link href="/items" className="action-card neu-card"><span className="ico">＋</span><strong>Ajouter</strong><small>Carte ou item coté</small></Link><Link href="/collection/blocks" className="action-card neu-card"><span className="ico">▦</span><strong>Master set</strong><small>Par bloc et série</small></Link><button onClick={() => setShowCreate(true)} className="action-card neu-card"><span className="ico">▤</span><strong>Classeur</strong><small>Créer une collection</small></button></section>
-      <section className="binder-section"><div className="section-heading"><h2>Mes classeurs</h2><button onClick={() => setShowCreate(true)}>Ajouter →</button></div>{binders.length?<div className="binder-list">{binders.map((binder)=><button key={binder.id} onClick={()=>void chooseBinder(binder.id)} className={`binder-row ${binder.id===selectedId?"active":""}`}><span className="binder-mini-cover">{binder.coverImageUrl?<img src={binder.coverImageUrl} alt=""/>:TYPE_META[binder.type].icon}</span><span className="binder-info"><strong>{binder.name}</strong><small>{TYPE_META[binder.type].label}{binder.progress!==null?` · ${binder.progress}%`:""}</small></span><span className="binder-value"><strong>{euro(binder.value)}</strong><small>{binder.totalItems} élément(s)</small></span></button>)}</div>:<EmptyCollection onCreate={() => setShowCreate(true)} />}</section>
+      <section className="binder-section"><div className="section-heading"><h2>Mes classeurs</h2><button onClick={() => setShowCreate(true)}>Ajouter →</button></div>{binders.length?<div className="binder-list">{binders.map((binder)=><Link key={binder.id} href={`/portfolio/${binder.id}`} className="binder-row"><span className="binder-mini-cover">{binder.coverImageUrl?<img src={binder.coverImageUrl} alt=""/>:TYPE_META[binder.type].icon}</span><span className="binder-info"><strong>{binder.name}</strong><small>{TYPE_META[binder.type].label}{binder.progress!==null?` · ${binder.progress}%`:""}</small></span><span className="binder-value"><strong>{euro(binder.value)}</strong><small>{binder.totalItems} élément(s)</small></span></Link>)}</div>:<EmptyCollection onCreate={() => setShowCreate(true)} />}</section>
       <section className="portfolio-utilities"><button onClick={() => downloadBackup("csv")}>↓ CSV</button><button onClick={() => downloadBackup("json")}>↓ Sauvegarder</button><button onClick={() => restoreInput.current?.click()}>↑ Restaurer</button><input ref={restoreInput} type="file" accept="application/json,.json" className="hidden" onChange={restoreBackup} /></section>
 
-      {detail && <BinderWorkspace detail={detail} busy={busy} refresh={refresh} />}
-      {showCreate && <CreateBinder close={() => setShowCreate(false)} created={async (id) => { setShowCreate(false); await loadBinders(id); }} />}
+      {showCreate && <CreateBinder close={() => setShowCreate(false)} created={async (id, setId) => { setShowCreate(false); setCreatedBinder({ id, setId }); await loadBinders(); }} />}
+      {createdBinder && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreatedBinder(null); }}><section className="app-modal text-center"><span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-400/15 text-3xl text-emerald-300">✓</span><p className="eyebrow mt-5">Classeur créé</p><h2 className="mt-2 text-2xl font-bold">Ton nouvel espace est prêt.</h2><p className="mt-2 text-sm text-slate-400">Tu peux commencer à sélectionner les cartes que tu possèdes, ou compléter le classeur plus tard.</p><div className="mt-6 grid gap-3">{createdBinder.setId && <Link href={`/collection/blocks?set=${encodeURIComponent(createdBinder.setId)}`} className="button-primary">Ajouter mes cartes maintenant</Link>}<Link href={`/portfolio/${createdBinder.id}`} className="neu-button">Ouvrir le classeur</Link><button className="text-sm text-slate-500" onClick={() => setCreatedBinder(null)}>Plus tard</button></div></section></div>}
     </main>
   );
 }
 
-function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy: boolean; refresh: () => Promise<void> }) {
+export function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy: boolean; refresh: () => Promise<void> }) {
   const [tab, setTab] = useState<"collection" | "missing" | "portfolio" | "activity">("collection");
   const [query, setQuery] = useState("");
   const [searchKind, setSearchKind] = useState<"CARD" | "ITEM">("CARD");
@@ -201,8 +184,8 @@ function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy
 
       <div className="p-5 md:p-8">
         {tab === "portfolio" ? <PortfolioPanel detail={detail} /> : tab === "activity" ? <ActivityPanel activities={detail.activities} /> : isMaster ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
-            {visibleTargets.map((target) => { const entry = detail.entries.find((item) => item.externalId === target.id || item.externalId === `cardmarket:${target.id}`); return <CollectibleTile key={target.id} target={target} working={workingId === target.id || busy} onToggle={() => toggle(target, target.owned)} onEdit={entry ? () => setEditing(entry) : undefined} />; })}
+          <div className="grid grid-cols-3 gap-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
+            {visibleTargets.map((target) => { const entry = detail.entries.find((item) => item.externalId === target.id || item.externalId === `cardmarket:${target.id}`); return <CollectibleTile key={target.id} target={target} href={target.kind === "ITEM" ? `/items/${target.id}` : `/cards/${target.id}`} working={workingId === target.id || busy} onToggle={() => toggle(target, target.owned)} onEdit={entry ? () => setEditing(entry) : undefined} />; })}
           </div>
         ) : (
           <>
@@ -210,9 +193,9 @@ function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy
               <div className="flex rounded-2xl bg-slate-950/60 p-1"><button className={searchKind === "CARD" ? "segment-active" : "segment"} onClick={() => setSearchKind("CARD")}>Cartes</button><button className={searchKind === "ITEM" ? "segment-active" : "segment"} onClick={() => setSearchKind("ITEM")}>Items</button></div>
               <input className="input h-12 flex-1" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={searchKind === "CARD" ? "Rechercher Pikachu, Dracaufeu…" : "Rechercher ETB, booster, display…"} />
             </div>
-            {results.length > 0 && <div className="mb-10"><p className="eyebrow mb-4">Résultats</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-7">{results.map((result) => <CollectibleTile key={result.id} target={{ ...result, kind: searchKind, owned: ownedIds.has(searchKind === "ITEM" ? `cardmarket:${result.id}` : result.id), number: result.localId }} working={workingId === result.id} onToggle={() => toggle({ ...result, kind: searchKind, owned: false }, ownedIds.has(searchKind === "ITEM" ? `cardmarket:${result.id}` : result.id))} />)}</div></div>}
+            {results.length > 0 && <div className="mb-10"><p className="eyebrow mb-4">Résultats</p><div className="grid grid-cols-3 gap-3 md:grid-cols-5 xl:grid-cols-7">{results.map((result) => <CollectibleTile key={result.id} href={searchKind === "ITEM" ? `/items/${result.id}` : `/cards/${result.id}`} target={{ ...result, kind: searchKind, owned: ownedIds.has(searchKind === "ITEM" ? `cardmarket:${result.id}` : result.id), number: result.localId }} working={workingId === result.id} onToggle={() => toggle({ ...result, kind: searchKind, owned: false }, ownedIds.has(searchKind === "ITEM" ? `cardmarket:${result.id}` : result.id))} />)}</div></div>}
             <p className="eyebrow mb-4">Dans ce classeur</p>
-            {detail.entries.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-7">{detail.entries.map((entry) => <CollectibleTile key={entry.id} target={{ ...entry, id: entry.externalId, owned: true, price: entry.unitValue }} working={workingId === entry.externalId} onToggle={() => toggle({ ...entry, id: entry.externalId }, true, entry.id)} onEdit={() => setEditing(entry)} />)}</div> : <div className="rounded-3xl border border-dashed border-slate-700/50 p-14 text-center text-slate-500">Recherche une carte ou un item pour commencer ce classeur.</div>}
+            {detail.entries.length ? <div className="grid grid-cols-3 gap-3 md:grid-cols-5 xl:grid-cols-7">{detail.entries.map((entry) => <CollectibleTile key={entry.id} href={entry.kind === "ITEM" && entry.productId ? `/items/${entry.productId}` : `/cards/${entry.externalId}`} target={{ ...entry, id: entry.externalId, owned: true, price: entry.unitValue }} working={workingId === entry.externalId} onToggle={() => toggle({ ...entry, id: entry.externalId }, true, entry.id)} onEdit={() => setEditing(entry)} />)}</div> : <div className="rounded-3xl border border-dashed border-slate-700/50 p-14 text-center text-slate-500">Recherche une carte ou un item pour commencer ce classeur.</div>}
           </>
         )}
       </div>
@@ -221,15 +204,15 @@ function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy
   );
 }
 
-function CollectibleTile({ target, working, onToggle, onEdit }: { target: Target; working: boolean; onToggle: () => void; onEdit?: () => void }) {
+function CollectibleTile({ target, href, working, onToggle, onEdit }: { target: Target; href?: string; working: boolean; onToggle: () => void; onEdit?: () => void }) {
   return <article className={`collectible-tile group ${target.owned ? "is-owned" : "is-missing"}`}>
     <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-900">
-      {target.imageUrl ? <img src={target.imageUrl} alt={target.name} loading="lazy" className="h-full w-full object-contain transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_50%_25%,rgba(56,189,248,.2),transparent_55%)] text-4xl">{target.kind === "ITEM" ? "⬡" : "◇"}</div>}
+      {href ? <Link href={href} className="block h-full" aria-label={`Voir ${target.name}`}>{target.imageUrl ? <img src={target.imageUrl} alt={target.name} loading="lazy" className="h-full w-full object-contain transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_50%_25%,rgba(56,189,248,.2),transparent_55%)] text-4xl">{target.kind === "ITEM" ? "⬡" : "◇"}</div>}</Link> : target.imageUrl ? <img src={target.imageUrl} alt={target.name} loading="lazy" className="h-full w-full object-contain transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_50%_25%,rgba(56,189,248,.2),transparent_55%)] text-4xl">{target.kind === "ITEM" ? "⬡" : "◇"}</div>}
       {target.owned && <span className="absolute left-2 top-2 rounded-full bg-emerald-400 px-2 py-1 text-[10px] font-bold text-emerald-950">✓ ACQUIS</span>}
       {onEdit && <button type="button" onClick={onEdit} className="absolute bottom-2 left-2 rounded-full border border-white/15 bg-slate-950/80 px-3 py-2 text-[10px] font-bold text-slate-100 backdrop-blur-xl">GÉRER</button>}
       <button disabled={working} onClick={onToggle} className={`absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full border backdrop-blur-xl ${target.owned ? "border-rose-300/30 bg-rose-950/80 text-rose-200" : "border-cyan-300/30 bg-slate-950/80 text-cyan-200"}`}>{working ? "…" : target.owned ? "−" : "+"}</button>
     </div>
-    <div className="px-1 pb-1 pt-3"><h3 className="line-clamp-2 min-h-10 text-sm font-semibold leading-5">{target.name}</h3><div className="mt-2 flex items-center justify-between text-[11px] text-slate-500"><span>{target.number ? `#${target.number}` : formatKind(target.productKind)}</span>{typeof target.price === "number" && target.price > 0 && <strong className="text-emerald-300">{euro(target.price)}</strong>}</div></div>
+    <div className="px-1 pb-1 pt-3">{href ? <Link href={href}><h3 className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 hover:text-cyan-200">{target.name}</h3></Link> : <h3 className="line-clamp-2 min-h-10 text-sm font-semibold leading-5">{target.name}</h3>}<div className="mt-2 flex items-center justify-between text-[11px] text-slate-500"><span>{target.number ? `#${target.number}` : formatKind(target.productKind)}</span>{typeof target.price === "number" && target.price > 0 && <strong className="text-emerald-300">{euro(target.price)}</strong>}</div></div>
   </article>;
 }
 
@@ -260,34 +243,36 @@ function ActivityPanel({ activities }: { activities: Activity[] }) {
   return <div className="mx-auto max-w-3xl"><div className="mb-6"><p className="eyebrow">Journal sécurisé</p><h3 className="mt-2 font-display text-2xl font-bold">Histoire du classeur</h3></div>{activities.length ? <div className="space-y-3">{activities.map((activity) => <article key={activity.id} className="flex items-center gap-4 rounded-2xl border border-white/5 bg-slate-950/50 p-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-400/10 text-cyan-200">✦</span><div className="min-w-0 flex-1"><strong className="block text-sm">{labels[activity.action] || activity.action}</strong><span className="block truncate text-sm text-slate-500">{activity.entryName || "Collection"}</span></div><time className="text-right text-xs text-slate-600">{new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(activity.createdAt))}</time></article>)}</div> : <div className="rounded-3xl border border-dashed border-slate-700/50 p-12 text-center text-slate-500">Les prochains mouvements apparaîtront ici.</div>}</div>;
 }
 
-function CreateBinder({ close, created }: { close: () => void; created: (id: string) => Promise<void> }) {
+function CreateBinder({ close, created }: { close: () => void; created: (id: string, setId: string | null) => Promise<void> }) {
   const [type, setType] = useState<BinderType>("MASTER_CARDS");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [setQuery, setSetQuery] = useState("");
+  const [blocks, setBlocks] = useState<BlockOption[]>([]);
+  const [blockId, setBlockId] = useState("");
   const [sets, setSets] = useState<SetOption[]>([]);
   const [setId, setSetId] = useState("");
   const [busy, setBusy] = useState(false);
   const needsSet = type === "MASTER_CARDS" || type === "MASTER_ITEMS";
   useEffect(() => {
     if (!needsSet) return;
-    const timer = window.setTimeout(async () => {
-      const response = await fetch(`/api/collections/sets?q=${encodeURIComponent(setQuery)}`);
-      if (response.ok) setSets(await response.json() as SetOption[]);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [setQuery, needsSet]);
+    fetch("/api/collections/blocks").then((response) => response.json()).then((data) => setBlocks(data.series ?? [])).catch(() => setBlocks([]));
+  }, [needsSet]);
+  async function chooseBlock(id: string) {
+    setBlockId(id); setSetId(""); setBusy(true);
+    const response = await fetch(`/api/collections/blocks?series=${encodeURIComponent(id)}`);
+    const data = await response.json(); setSets(data.sets ?? []); setBusy(false);
+  }
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true);
     const response = await fetch("/api/collections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, name, description, setId }) });
     setBusy(false); if (!response.ok) return;
-    const binder = await response.json() as { id: string }; await created(binder.id);
+    const binder = await response.json() as { id: string }; await created(binder.id, needsSet ? setId : null);
   }
   return <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/80 p-0 backdrop-blur-xl md:place-items-center md:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
     <form onSubmit={submit} className="modal-orbit max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#0b111c] p-6 shadow-2xl md:rounded-[2.25rem] md:p-9">
       <div className="flex justify-between"><div><p className="eyebrow">Nouvel univers</p><h2 className="mt-2 font-display text-3xl font-bold">Que veux-tu collectionner ?</h2></div><button type="button" className="h-10 w-10 rounded-full bg-slate-800 text-slate-400" onClick={close}>×</button></div>
-      <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(Object.keys(TYPE_META) as BinderType[]).map((key) => <button type="button" key={key} onClick={() => { setType(key); setSetId(""); }} className={`type-choice ${type === key ? "active" : ""}`}><span className="text-2xl">{TYPE_META[key].icon}</span><strong className="mt-3 block">{TYPE_META[key].label}</strong><small className="mt-1 block text-slate-500">{TYPE_META[key].kicker}</small></button>)}</div>
-      {needsSet && <div className="mt-7"><label className="eyebrow">Choisir la série</label><input className="input mt-3 h-12 w-full" value={setQuery} onChange={(event) => setSetQuery(event.target.value)} placeholder="151, Évolutions Prismatiques, Base Set…" /><div className="no-scrollbar mt-4 flex gap-3 overflow-x-auto pb-2">{sets.map((set) => <button type="button" key={set.id} onClick={() => setSetId(set.id)} className={`set-chip ${setId === set.id ? "active" : ""}`}>{set.logo ? <img src={set.logo} alt="" className="h-9 w-16 object-contain" /> : <span>◇</span>}<span><b className="block max-w-40 truncate text-left text-sm">{set.name}</b><small className="text-slate-500">{set.cardCount.total} cartes</small></span></button>)}</div></div>}
+      <div className="mt-7 grid gap-3 sm:grid-cols-3">{(["GLOBAL", "MASTER_CARDS", "MASTER_ITEMS"] as BinderType[]).map((key) => <button type="button" key={key} onClick={() => { setType(key); setBlockId(""); setSetId(""); setSets([]); }} className={`type-choice ${type === key ? "active" : ""}`}><span className="text-2xl">{TYPE_META[key].icon}</span><strong className="mt-3 block">{TYPE_META[key].label}</strong><small className="mt-1 block text-slate-500">{TYPE_META[key].kicker}</small></button>)}</div>
+      {needsSet && <div className="mt-7"><label className="eyebrow">1 · Choisir le bloc</label><div className="binder-choice-grid mt-4">{blocks.map((block) => <button type="button" key={block.id} onClick={() => void chooseBlock(block.id)} className={`binder-catalog-choice ${blockId === block.id ? "active" : ""}`}><span className="binder-choice-image">{block.logo ? <img src={block.logo} alt="" /> : "PK"}</span><strong>{block.name}</strong><small>{block.setCount} série(s) · {block.releaseDate ? new Date(block.releaseDate).getFullYear() : "—"}</small></button>)}</div>{blockId && <><label className="eyebrow mt-7 block">2 · Choisir la série</label><div className="binder-choice-grid mt-4">{sets.map((set) => <button type="button" key={set.id} onClick={() => setSetId(set.id)} className={`binder-catalog-choice ${setId === set.id ? "active" : ""}`}><span className="binder-choice-image">{set.logo ? <img src={set.logo} alt="" /> : "◇"}</span><strong>{set.name}</strong><small>{set.total} cartes · {set.releaseDate ? new Date(set.releaseDate).getFullYear() : "—"}</small></button>)}</div></>}</div>}
       <div className="mt-7 grid gap-4 md:grid-cols-2"><label><span className="eyebrow">Nom personnalisé</span><input className="input mt-3 h-12 w-full" value={name} onChange={(event) => setName(event.target.value)} placeholder="Optionnel" /></label><label><span className="eyebrow">Description</span><input className="input mt-3 h-12 w-full" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Mon objectif, mon histoire…" /></label></div>
       <button disabled={busy || (needsSet && !setId)} className="button-primary mt-8 h-12 w-full">{busy ? "Création…" : "Créer mon espace de collection"}</button>
     </form>
@@ -308,6 +293,6 @@ function HeroMetric({ label, value, detail, tone }: { label: string; value: stri
 function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return <button className={`workspace-tab ${active ? "active" : ""}`} onClick={onClick}>{children}</button>; }
 function EmptyCollection({ onCreate }: { onCreate: () => void }) { return <button onClick={onCreate} className="surface group w-full overflow-hidden p-12 text-center"><span className="mx-auto grid h-20 w-20 place-items-center rounded-3xl border border-cyan-300/20 bg-cyan-400/5 text-4xl text-cyan-300 transition group-hover:scale-110">＋</span><h3 className="mt-5 font-display text-2xl font-bold">Crée ton premier univers</h3><p className="mt-2 text-slate-500">Master set complet, objets scellés ou classeur totalement libre.</p></button>; }
 function CollectionSkeleton() { return <main className="collection-stage min-h-screen p-10"><div className="h-8 w-40 animate-pulse rounded-full bg-slate-800" /><div className="mt-6 h-20 max-w-3xl animate-pulse rounded-3xl bg-slate-800/70" /></main>; }
-function CollectionLogin({ googleConfigured }: { googleConfigured: boolean }) { return <main className="collection-stage grid min-h-[80vh] place-items-center p-5"><div className="modal-orbit w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 text-center backdrop-blur-2xl"><span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-cyan-300/10 text-3xl">✦</span><p className="eyebrow mt-6">Espace privé</p><h1 className="mt-2 font-display text-3xl font-bold">Ta collection t’attend.</h1><p className="mt-3 text-sm text-slate-500">Connecte-toi avec Google : ton compte est créé automatiquement et tes données restent synchronisées sur tous tes appareils.</p><button disabled={!googleConfigured} className="button-primary mt-7 flex h-12 w-full items-center justify-center gap-3" onClick={() => signIn("google", { callbackUrl: "/collection" })}><span className="grid h-7 w-7 place-items-center rounded-full bg-white text-blue-600">G</span>{googleConfigured ? "Continuer avec Google" : "Google à configurer"}</button></div></main>; }
+function CollectionLogin({ googleConfigured }: { googleConfigured: boolean }) { return <main className="collection-stage grid min-h-[80vh] place-items-center p-5"><div className="modal-orbit w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 text-center backdrop-blur-2xl"><span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-cyan-300/10 text-3xl">✦</span><p className="eyebrow mt-6">Espace privé</p><h1 className="mt-2 font-display text-3xl font-bold">Ta collection t’attend.</h1><p className="mt-3 text-sm text-slate-500">Connecte-toi avec Google : ton compte est créé automatiquement et tes données restent synchronisées sur tous tes appareils.</p><button disabled={!googleConfigured} className="button-primary mt-7 flex h-12 w-full items-center justify-center gap-3" onClick={() => signIn("google", { callbackUrl: "/onboarding" })}><span className="grid h-7 w-7 place-items-center rounded-full bg-white text-blue-600">G</span>{googleConfigured ? "Continuer avec Google" : "Google à configurer"}</button></div></main>; }
 function euro(value: number) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(value); }
 function formatKind(value?: string) { return value ? value.toLowerCase().replaceAll("_", " ") : ""; }

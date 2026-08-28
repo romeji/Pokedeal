@@ -22,6 +22,12 @@ model User {
   emailVerified DateTime?
   image         String?
   role          String                @default("USER")
+  locale        String                @default("fr")
+  currency      String                @default("EUR")
+  trainerName   String?
+  favoritePokemon String?
+  birthDate     DateTime?
+  onboardingCompletedAt DateTime?
   accounts      Account[]
   sessions      Session[]
   binders       CollectorBinder[]
