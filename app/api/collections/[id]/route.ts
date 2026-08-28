@@ -15,6 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     where: { id, userId: user.id },
     include: {
       entries: {
+        where: { quantity: { gt: 0 } },
         orderBy: { createdAt: "desc" },
         include: {
           product: {

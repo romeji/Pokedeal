@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
-import { isAdminRequest } from "@/lib/admin/auth";
+import { getAdminUser } from "@/lib/auth/user";
 import { assertProviderApproved } from "@/lib/compliance/complianceGate";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const maxDuration = 60;
 type Price = { idProduct:number; low:number|null; avg:number|null; trend:number|null; avg1:number|null; avg7:number|null; avg30:number|null; "low-holo":number|null; "avg-holo":number|null; "trend-holo":number|null; "avg1-holo":number|null; "avg7-holo":number|null; "avg30-holo":number|null };
 
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error:"Accès refusé" }, { status:401 });
+  if (!await getAdminUser(request)) return NextResponse.json({ error:"Accès refusé" }, { status:401 });
   await assertProviderApproved("cardmarket");
   const body = await request.json() as { prices?:Price[]; retrievedAt?:string };
   if (!Array.isArray(body.prices) || body.prices.length > 300) return NextResponse.json({ error:"Lot invalide (300 prix maximum)" }, { status:400 });

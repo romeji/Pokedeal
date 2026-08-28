@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
     include: {
-      entries: { select: entryPriceSelect },
+      entries: { where: { quantity: { gt: 0 } }, select: entryPriceSelect },
       valueSnapshots: { orderBy: { recordedAt: "desc" }, take: 8 },
     },
   });

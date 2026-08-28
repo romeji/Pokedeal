@@ -22,7 +22,7 @@ type Price struct { Amount string `json:"amount"`; Currency string `json:"curren
 type Photo struct { URL string `json:"url"` }
 type CatalogItem struct { ID int64 `json:"id"`; Title string `json:"title"`; Description string `json:"description"`; URL string `json:"url"`; Price Price `json:"price"`; Photo Photo `json:"photo"`; Photos []Photo `json:"photos"` }
 type CatalogResponse struct { Items []CatalogItem `json:"items"` }
-type Listing struct { ExternalID string `json:"externalId"`; URL string `json:"url"`; Title string `json:"title"`; Description string `json:"description"`; Price float64 `json:"price"`; Currency string `json:"currency"`; ImageURLs []string `json:"imageUrls"` }
+type Listing struct { ExternalID string `json:"externalId"`; URL string `json:"url"`; Title string `json:"title"`; Description string `json:"description"`; Price float64 `json:"price"`; Currency string `json:"currency"`; SellerCountry string `json:"sellerCountry"`; ImageURLs []string `json:"imageUrls"` }
 type TrackedListing struct { ExternalID string `json:"externalId"`; URL string `json:"url"` }
 type ListingStatus struct { ExternalID string `json:"externalId"`; Status string `json:"status"` }
 

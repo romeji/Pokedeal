@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/database/prisma";
 import { getDatabaseDeployment } from "@/lib/database/deployment";
+import { requireAdminPage } from "@/lib/auth/page";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export default async function AdminSystemPage() {
+  await requireAdminPage();
   const databaseDeployment = getDatabaseDeployment();
   let compliance: Awaited<ReturnType<typeof prisma.providerComplianceReview.findMany>> = [];
   let recentRuns: Awaited<ReturnType<typeof prisma.workerRun.findMany>> = [];

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
-import { isAdminRequest } from "@/lib/admin/auth";
+import { getAdminUser } from "@/lib/auth/user";
 import { assertProviderApproved } from "@/lib/compliance/complianceGate";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ const KINDS: Record<number, string> = { 51:"SINGLE",52:"BOOSTER",53:"DISPLAY",54
 type Product = { idProduct:number; idCategory:number; categoryName:string; idExpansion:number; idMetacard:number; name:string; dateAdded:string };
 
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error:"Accès refusé" }, { status:401 });
+  if (!await getAdminUser(request)) return NextResponse.json({ error:"Accès refusé" }, { status:401 });
   await assertProviderApproved("cardmarket");
   const body = await request.json() as { products?: Product[] };
   if (!Array.isArray(body.products) || body.products.length > 300) return NextResponse.json({ error:"Lot invalide (300 produits maximum)" }, { status:400 });

@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/auth/user";
 import { prisma } from "@/lib/database/prisma";
-import { assetImage, searchCardsDetailed } from "@/lib/tcgdex/client";
+import { assetImage, assetLogo, resolveSetQuery, searchCardsDetailed } from "@/lib/tcgdex/client";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +17,10 @@ export async function GET(request: Request) {
   }
   if (!favoritesOnly && query.length < 2) return NextResponse.json([]);
 
-  const searchTokens = normalizeProductQuery(query);
-  const cardDetails = !favoritesOnly && query ? await searchCardsDetailed(query, 24).catch(() => []) : [];
+  const resolvedSet = query ? await resolveSetQuery(query).catch(() => null) : null;
+  const sealedIntent = /\b(bundle|booster|display|coffret|box|etb|tripack|blister|tin)\b/i.test(query);
+  const searchTokens = normalizeProductQuery(query, resolvedSet?.fr.name, resolvedSet?.en?.name);
+  const cardDetails = !favoritesOnly && query && !sealedIntent ? await searchCardsDetailed(query, 24).catch(() => []) : [];
   const tcgdexByProductId = new Map(cardDetails.flatMap((card) => {
     const id = card.pricing?.cardmarket?.idProduct;
     return id ? [[id, card] as const] : [];
@@ -87,7 +89,8 @@ export async function GET(request: Request) {
         setName: tcgdex?.set.name ?? product.set?.name ?? null,
         setCode: product.set?.code ?? null,
         imageUrl:
-          assetImage(tcgdex?.image) ?? product.imageUrl ?? product.productMatches[0]?.listing.images[0]?.url ?? null,
+          assetImage(tcgdex?.image) ?? product.imageUrl ?? product.productMatches[0]?.listing.images[0]?.url ??
+          (sealedIntent ? assetLogo(resolvedSet?.fr.logo) : null),
         price: price
           ? {
               probable: Number(
@@ -105,11 +108,14 @@ export async function GET(request: Request) {
   );
 }
 
-function normalizeProductQuery(query: string) {
+function normalizeProductQuery(query: string, setNameFr?: string, setNameEn?: string) {
   const normalized = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, " ");
-  const expanded = normalized.replace(/\betb\b/g, "elite trainer box").replace(/\bdracaufeu\b/g, "charizard");
+  const expanded = normalized.replace(/\betb\b/g, "elite trainer box").replace(/\bcoffret\b/g, "box").replace(/\bdisplay\b/g, "booster box").replace(/\bdracaufeu\b/g, "charizard");
   const noise = new Set(["pokemon", "tcg", "set", "bloc", "block", "serie", "carte", "cartes", "card", "cards", "fr", "francais", "francaise", "francaises", "anglais", "english", "en", "japonais", "japonaise", "jp"]);
-  return [...new Set(expanded.split(/\s+/).filter((token) => token.length > 1 && !noise.has(token)))];
+  const frTokens = new Set((setNameFr ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean));
+  const tokens = expanded.split(/\s+/).filter((token) => token.length > 1 && !noise.has(token) && !frTokens.has(token) && !/^(?:ev|sv|me)\d/.test(token));
+  if (setNameEn) tokens.push(...setNameEn.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 1));
+  return [...new Set(tokens)];
 }
 
 export async function POST(request: Request) {

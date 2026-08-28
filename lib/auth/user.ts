@@ -34,4 +34,9 @@ export async function getRequestUser(request: Request): Promise<RequestUser | nu
   return null;
 }
 
+export async function getAdminUser(request: Request): Promise<RequestUser | null> {
+  const user = await getRequestUser(request);
+  return user?.role === "ADMIN" ? user : null;
+}
+
 export { googleAuthConfigured };

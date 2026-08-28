@@ -8,7 +8,7 @@ const links = [
   { href: "/library", label: "Deals", icon: "◈" },
   { href: "/collection", label: "Collection", icon: "◇" },
   { href: "/items", label: "Prix", icon: "⌕" },
-  { href: "/admin/monitors", label: "Scanner", icon: "◎" },
+  { href: "/profile", label: "Profil", icon: "○" },
 ];
 
 export function MobileNav() {

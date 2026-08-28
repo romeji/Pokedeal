@@ -16,18 +16,20 @@ datasource db {
 // ==========================================================
 
 model User {
-  id            String            @id @default(cuid())
+  id            String                @id @default(cuid())
   name          String?
-  email         String?           @unique
+  email         String?               @unique
   emailVerified DateTime?
   image         String?
-  role          String            @default("USER")
+  role          String                @default("USER")
   accounts      Account[]
   sessions      Session[]
   binders       CollectorBinder[]
   watchlist     Watchlist[]
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  sales         CollectionSale[]
+  dealDecisions OpportunityDecision[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 }
 
 model Account {
@@ -198,25 +200,28 @@ model PriceSnapshot {
 // ==========================================================
 
 model Listing {
-  id           String         @id @default(cuid())
-  marketplace  String         @default("vinted")
-  externalId   String
-  url          String
-  title        String
-  description  String?
-  price        Decimal
-  currency     String         @default("EUR")
-  status       String         @default("NEW") // NEW / ANALYZED / MATCHED / SCORED / EXPIRED / REMOVED
-  filterReason String?
-  filterFlags  String[]       @default([])
-  listingHash  String?
-  titleHash    String?
-  firstSeenAt  DateTime       @default(now())
-  lastSeenAt   DateTime       @updatedAt
-  images       ListingImage[]
-  items        ListingItem[]
-  matches      ProductMatch[]
-  opportunity  Opportunity?
+  id            String         @id @default(cuid())
+  marketplace   String         @default("vinted")
+  externalId    String
+  url           String
+  title         String
+  description   String?
+  price         Decimal
+  currency      String         @default("EUR")
+  sellerCountry String?
+  itemCondition String?
+  publishedAt   DateTime?
+  status        String         @default("NEW") // NEW / ANALYZED / MATCHED / SCORED / EXPIRED / REMOVED
+  filterReason  String?
+  filterFlags   String[]       @default([])
+  listingHash   String?
+  titleHash     String?
+  firstSeenAt   DateTime       @default(now())
+  lastSeenAt    DateTime       @updatedAt
+  images        ListingImage[]
+  items         ListingItem[]
+  matches       ProductMatch[]
+  opportunity   Opportunity?
 
   @@unique([marketplace, externalId])
   @@index([status])
@@ -317,9 +322,25 @@ model Opportunity {
   status        String                @default("NEW") // NEW / FAVORITE / BOUGHT / SOLD / IGNORED / TO_CHECK
   score         OpportunityScore?
   notifications DiscordNotification[]
+  decisions     OpportunityDecision[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model OpportunityDecision {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  status        String      @default("TO_REVIEW") // TO_REVIEW / VALIDATED / BOUGHT / IGNORED
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([userId, opportunityId])
+  @@index([userId, status, updatedAt])
 }
 
 model OpportunityScore {
@@ -341,16 +362,21 @@ model OpportunityScore {
 // ==========================================================
 
 model Watchlist {
-  id        String             @id @default(cuid())
-  userId    String
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String?
-  product   CardmarketProduct? @relation(fields: [productId], references: [id])
-  label     String // ex: "Pokémon 151 ETB FR"
-  maxPrice  Decimal?
-  createdAt DateTime           @default(now())
+  id         String             @id @default(cuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    CardmarketProduct? @relation(fields: [productId], references: [id])
+  externalId String?
+  kind       String             @default("ITEM")
+  imageUrl   String?
+  setName    String?
+  label      String // ex: "Pokémon 151 ETB FR"
+  maxPrice   Decimal?
+  createdAt  DateTime           @default(now())
 
   @@unique([userId, productId])
+  @@unique([userId, externalId])
   @@index([userId, createdAt])
 }
 
@@ -415,10 +441,32 @@ model CollectionEntry {
   column        Int?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+  sales         CollectionSale[]
 
   @@unique([binderId, externalId, variant, condition])
   @@index([binderId, kind])
   @@index([productId])
+}
+
+model CollectionSale {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryId       String?
+  entry         CollectionEntry? @relation(fields: [entryId], references: [id], onDelete: SetNull)
+  externalId    String
+  name          String
+  imageUrl      String?
+  setName       String?
+  quantity      Int
+  unitSalePrice Decimal
+  fees          Decimal          @default(0)
+  unitCostBasis Decimal?
+  soldAt        DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+
+  @@index([userId, soldAt])
+  @@index([entryId])
 }
 
 model CollectionActivity {
