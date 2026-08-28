@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const resolvedSet = query ? await resolveSetQuery(query).catch(() => null) : null;
   const sealedIntent = /\b(bundle|booster|display|coffret|box|etb|tripack|blister|tin)\b/i.test(query);
   const searchTokens = normalizeProductQuery(query, resolvedSet?.fr.name, resolvedSet?.en?.name);
-  const cardDetails = !favoritesOnly && query && !sealedIntent ? await searchCardsDetailed(query, 24).catch(() => []) : [];
+  const cardDetails = !favoritesOnly && query && !sealedIntent ? await searchCardsDetailed(query, 40).catch(() => []) : [];
   const tcgdexByProductId = new Map(cardDetails.flatMap((card) => {
     const id = card.pricing?.cardmarket?.idProduct;
     return id ? [[id, card] as const] : [];

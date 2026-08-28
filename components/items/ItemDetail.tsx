@@ -12,7 +12,7 @@ type ItemData = {
   favorite: boolean;
   owned: { id: string; binderId: string; binderName: string; quantity: number; purchasePrice: number | null }[];
   binders: { id: string; name: string }[];
-  markets: { cardmarket: number | null; vintedActiveMedian: number | null; vintedCount: number; ebay: null };
+  markets: { cardmarket: number | null; vintedActiveMedian: number | null; vintedCount: number; ebay: { configured: boolean; median: number | null; count: number; url: string | null } };
   activeListings: { id: string; title: string; url: string; price: number; country?: string | null; condition?: string | null; imageUrl?: string | null; publishedAt: string }[];
 };
 
@@ -69,18 +69,23 @@ export function ItemDetail({ id }: { id: string }) {
   if (busy && !data) return <main className="app-page"><div className="loading-panel">Chargement de la cotation…</div></main>;
   if (!data) return <main className="app-page"><div className="neu-card p-8">{message}</div></main>;
   const current = data.current?.probable ?? data.markets.cardmarket;
+  const ownedQuantity = data.owned.reduce((sum, entry) => sum + entry.quantity, 0);
+  const invested = data.owned.reduce((sum, entry) => sum + (entry.purchasePrice ?? 0) * entry.quantity, 0);
+  const positionValue = (current ?? 0) * ownedQuantity;
 
   return <main className="app-page item-detail-page">
     <Link href="/items" className="neu-button inline-flex">← Retour aux prix</Link>
-    <section className="item-detail-hero mt-5">
-      <div className="item-detail-image">{data.product.imageUrl ? <img src={data.product.imageUrl} alt={data.product.name} /> : <div className="image-placeholder">PK</div>}</div>
+    <section className="item-detail-hero product-focus mt-5">
+      <div className="item-detail-image">{data.product.imageUrl ? <img src={data.product.imageUrl} alt={data.product.name} /> : <div className="pokemon-logo-placeholder"><img src="/icon.svg" alt="PokéDeal" /><span>POKÉMON</span></div>}</div>
       <div className="min-w-0 flex-1"><p className="eyebrow">{data.product.kind.replaceAll("_", " ")} · {data.product.setName || "Catalogue Cardmarket"}</p><h1>{data.product.name}</h1><p className="item-live-price">{current === null ? "Prix indisponible" : euro(current)}</p><div className="mt-5 flex flex-wrap gap-3"><button className={`neu-button ${data.favorite ? "active" : ""}`} onClick={() => void toggleFavorite()}>{data.favorite ? "★ Dans ma wishlist" : "☆ Ajouter à ma wishlist"}</button><a className="button-primary" href={`https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(data.product.name)}`} target="_blank" rel="noreferrer">Voir sur Cardmarket ↗</a></div></div>
     </section>
     {message && <p className="status-message">{message}</p>}
 
+    {ownedQuantity > 0 && <section className="neu-card owned-position"><div><p className="eyebrow">Ma position</p><h2>{ownedQuantity} exemplaire{ownedQuantity > 1 ? "s" : ""}</h2></div><div><span>Investi</span><strong>{euro(invested)}</strong></div><div><span>Valeur actuelle</span><strong>{euro(positionValue)}</strong></div><div><span>Plus-value latente</span><strong className={positionValue - invested >= 0 ? "gain" : "loss"}>{signedEuro(positionValue - invested)}</strong></div></section>}
+
     <section className="detail-grid mt-6">
       <article className="neu-card chart-card"><div className="section-heading"><div><p className="eyebrow">Historique Cardmarket</p><h2>Évolution du prix</h2></div><strong>{current === null ? "—" : euro(current)}</strong></div>{chart ? <svg viewBox="0 0 800 260" role="img" aria-label="Courbe historique du prix" className="price-chart"><defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#12d7bb" stopOpacity=".38"/><stop offset="1" stopColor="#12d7bb" stopOpacity="0"/></linearGradient></defs><path d={`${chart.path} L 790 250 L 10 250 Z`} fill="url(#chartFill)"/><path d={chart.path} fill="none" stroke="#12d7bb" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/></svg> : <div className="empty-chart">L'historique apparaîtra après plusieurs imports quotidiens.</div>}<div className="chart-range"><span>{chart?.minDate || "—"}</span><span>{chart?.maxDate || "Aujourd'hui"}</span></div></article>
-      <article className="neu-card p-5"><p className="eyebrow">Comparer les marchés</p><h2 className="mt-2 text-xl font-bold">Prix disponibles</h2><div className="market-list"><Market name="Cardmarket" value={data.markets.cardmarket} count="Price Guide" href={`https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(data.product.name)}`} /><Market name="Vinted" value={data.markets.vintedActiveMedian} count={`${data.markets.vintedCount} annonce(s) active(s)`} href={`https://www.vinted.fr/catalog?search_text=${encodeURIComponent(data.product.name)}`} /><Market name="eBay" value={null} count="Lien de comparaison" href={`https://www.ebay.fr/sch/i.html?_nkw=${encodeURIComponent(data.product.name)}`} /></div><p className="helper-text">Cardmarket reste la cotation principale. Vinted affiche ici la médiane des annonces actives, pas des ventes réalisées.</p></article>
+      <article className="neu-card p-5"><p className="eyebrow">Comparer les marchés</p><h2 className="mt-2 text-xl font-bold">Prix disponibles</h2><div className="market-list"><Market name="Cardmarket" value={data.markets.cardmarket} count="Price Guide" href={`https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(data.product.name)}`} /><Market name="Vinted" value={data.markets.vintedActiveMedian} count={`${data.markets.vintedCount} annonce(s) active(s)`} href={`https://www.vinted.fr/catalog?search_text=${encodeURIComponent(data.product.name)}`} /><Market name="eBay" value={data.markets.ebay.median} count={data.markets.ebay.configured ? `${data.markets.ebay.count} annonce(s) actives` : "Clés eBay à configurer"} href={data.markets.ebay.url || `https://www.ebay.fr/sch/i.html?_nkw=${encodeURIComponent(data.product.name)}`} /></div><p className="helper-text">Cardmarket reste la cotation principale. Vinted et eBay présentent la médiane des annonces actives : ce ne sont pas des ventes réalisées.</p></article>
     </section>
 
     <section className="detail-grid mt-6">
@@ -94,6 +99,7 @@ export function ItemDetail({ id }: { id: string }) {
 
 function Market({ name, value, count, href }: { name: string; value: number | null; count: string; href: string }) { return <a href={href} target="_blank" rel="noreferrer" className="market-row"><div><strong>{name}</strong><small>{count}</small></div><span>{value === null ? "Comparer ↗" : euro(value)}</span></a>; }
 function euro(value: number) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(value); }
+function signedEuro(value: number) { return `${value >= 0 ? "+" : ""}${euro(value)}`; }
 function buildChart(rows: Snapshot[]) {
   const valid = rows.filter((row) => Number.isFinite(row.probable) && row.probable > 0);
   if (valid.length < 2) return null;

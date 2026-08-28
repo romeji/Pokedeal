@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/auth/user";
 import { prisma } from "@/lib/database/prisma";
 import { assetImage, searchCardsDetailed } from "@/lib/tcgdex/client";
+import { getEbayActiveMarket } from "@/lib/ebay/market";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const activeListings = [...new Map(product.productMatches.map((match) => [match.listing.id, match.listing])).values()];
   const prices = activeListings.map((listing) => Number(listing.price)).sort((a,b)=>a-b);
   const vintedMedian = prices.length ? prices[Math.floor(prices.length / 2)]! : null;
+  const ebay = await getEbayActiveMarket(product.name).catch(() => ({ configured: Boolean(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET), median: null, count: 0, url: null }));
   const snapshots = product.priceSnapshots.map((snapshot) => ({ date: snapshot.retrievedAt, probable: Number(snapshot.trendPrice ?? snapshot.avg7Price ?? snapshot.averagePrice ?? snapshot.lowPrice ?? 0), low: snapshot.lowPrice === null ? null : Number(snapshot.lowPrice), average: snapshot.averagePrice === null ? null : Number(snapshot.averagePrice) }));
   return NextResponse.json({
     product: { id: product.id, cardmarketProductId: product.cardmarketProductId, name: product.name, kind: product.kind, setName: product.set?.name, imageUrl },
@@ -45,7 +47,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     favorite: Boolean(favorite),
     owned: owned.map((entry) => ({ id: entry.id, binderId: entry.binder.id, binderName: entry.binder.name, quantity: entry.quantity, purchasePrice: entry.purchasePrice === null ? null : Number(entry.purchasePrice) })),
     binders,
-    markets: { cardmarket: snapshots.at(-1)?.probable ?? null, vintedActiveMedian: vintedMedian, vintedCount: activeListings.length, ebay: null },
+    markets: { cardmarket: snapshots.at(-1)?.probable ?? null, vintedActiveMedian: vintedMedian, vintedCount: activeListings.length, ebay },
     activeListings: activeListings.slice(0, 12).map((listing) => ({ id: listing.id, title: listing.title, url: listing.url, price: Number(listing.price), country: listing.sellerCountry, condition: listing.itemCondition, imageUrl: listing.images[0]?.url ?? null, publishedAt: listing.publishedAt ?? listing.firstSeenAt })),
   });
 }

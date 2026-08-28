@@ -14,7 +14,10 @@ Write-LauncherLog "Ouverture du centre de démarrage (PowerShell $($PSVersionTab
 
 $form = New-Object Windows.Forms.Form
 $form.Text = "PokéDeal · Centre de démarrage"
-$form.Size = New-Object Drawing.Size(760,805)
+$form.Size = New-Object Drawing.Size(780,880)
+$form.MinimumSize = New-Object Drawing.Size(640,680)
+$form.AutoScaleMode = [Windows.Forms.AutoScaleMode]::Dpi
+$form.AutoScroll = $true
 $form.StartPosition = "CenterScreen"
 $form.BackColor = [Drawing.Color]::FromArgb(10,17,27)
 $form.ForeColor = [Drawing.Color]::FromArgb(226,232,240)
@@ -23,12 +26,12 @@ $iconPath = Join-Path $PSScriptRoot "pokedeal.ico"
 if (Test-Path -LiteralPath $iconPath) { $form.Icon = New-Object Drawing.Icon($iconPath) }
 
 $title = New-Object Windows.Forms.Label
-$title.Text = "POKÉDEAL  ·  PRÉVOL"
+$title.Text = "◓  POKÉDEAL  ·  PRÉVOL"
 $title.Font = New-Object Drawing.Font("Segoe UI Semibold",20)
-$title.ForeColor = [Drawing.Color]::FromArgb(103,232,249)
+$title.ForeColor = [Drawing.Color]::FromArgb(255,203,64)
 $title.SetBounds(32,25,680,45); $form.Controls.Add($title)
 $subtitle = New-Object Windows.Forms.Label
-$subtitle.Text = "Toutes les vérifications doivent être validées avant le lancement."
+$subtitle.Text = "Centre Pokémon : contrôles, journaux et lancement des workers."
 $subtitle.ForeColor = [Drawing.Color]::FromArgb(148,163,184)
 $subtitle.SetBounds(34,72,680,28); $form.Controls.Add($subtitle)
 
@@ -37,7 +40,7 @@ $labels = @()
 for($i=0;$i -lt $checks.Count;$i++){ $label=New-Object Windows.Forms.Label; $label.Text="○  $($checks[$i])"; $label.BackColor=[Drawing.Color]::FromArgb(18,29,43); $label.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $label.Padding=New-Object Windows.Forms.Padding(14,9,8,8); $label.SetBounds(34,(112+$i*46),675,37); $form.Controls.Add($label); $labels += $label }
 
 $status = New-Object Windows.Forms.Label; $status.Text="Prêt pour la vérification."; $status.SetBounds(34,580,675,28); $form.Controls.Add($status)
-$verify = New-Object Windows.Forms.Button; $verify.Text="Vérifier l'application"; $verify.SetBounds(34,620,315,48); $verify.BackColor=[Drawing.Color]::FromArgb(34,211,238); $verify.ForeColor=[Drawing.Color]::FromArgb(8,15,24); $verify.FlatStyle="Flat"; $form.Controls.Add($verify)
+$verify = New-Object Windows.Forms.Button; $verify.Text="Vérifier l'application"; $verify.SetBounds(34,620,315,48); $verify.BackColor=[Drawing.Color]::FromArgb(59,130,246); $verify.ForeColor=[Drawing.Color]::White; $verify.FlatStyle="Flat"; $form.Controls.Add($verify)
 $start = New-Object Windows.Forms.Button; $start.Text="Démarrer PokéDeal"; $start.SetBounds(394,620,315,48); $start.Enabled=$false; $start.BackColor=[Drawing.Color]::FromArgb(30,41,59); $start.ForeColor=[Drawing.Color]::FromArgb(148,163,184); $start.FlatStyle="Flat"; $form.Controls.Add($start)
 $openLogs = New-Object Windows.Forms.Button; $openLogs.Text="Ouvrir les journaux de démarrage"; $openLogs.SetBounds(34,682,675,38); $openLogs.BackColor=[Drawing.Color]::FromArgb(18,29,43); $openLogs.ForeColor=[Drawing.Color]::FromArgb(165,243,252); $openLogs.FlatStyle="Flat"; $form.Controls.Add($openLogs)
 
@@ -55,6 +58,7 @@ $openLogs.Add_Click({
 function Invoke-Check([int]$index,[scriptblock]$action){
   $name=$checks[$index]
   $labels[$index].Text="…  $name"
+  $status.Text="$name — vérification en cours…"
   [Windows.Forms.Application]::DoEvents()
   Write-LauncherLog "Vérification : $name"
   try {
@@ -74,6 +78,21 @@ function Invoke-Check([int]$index,[scriptblock]$action){
     Write-LauncherLog "Vérification échouée ($name) : $($_.Exception.Message)" "ERROR"
     return $false
   }
+}
+
+function Invoke-ResponsiveNpm([string[]]$arguments, [string]$progressMessage) {
+  $stdoutPath = Join-Path $projectRoot ".pokedeal-preflight-output.log"
+  $stderrPath = Join-Path $projectRoot ".pokedeal-preflight-error.log"
+  $status.Text = $progressMessage
+  Write-LauncherLog "$progressMessage La fenêtre reste utilisable pendant le contrôle."
+  $process = Start-Process -FilePath "npm.cmd" -ArgumentList $arguments -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+  while (!$process.WaitForExit(250)) { [Windows.Forms.Application]::DoEvents() }
+  $output = @()
+  if (Test-Path -LiteralPath $stdoutPath) { $output += Get-Content -LiteralPath $stdoutPath }
+  if (Test-Path -LiteralPath $stderrPath) { $output += Get-Content -LiteralPath $stderrPath | Where-Object { $_ -notmatch "CJS build of Vite's Node API is deprecated" } }
+  if ($output.Count) { Write-Output ($output -join [Environment]::NewLine) }
+  if ($process.ExitCode -ne 0) { throw "npm a retourné le code $($process.ExitCode). Ouvre les journaux pour le détail." }
+  $global:LASTEXITCODE = 0
 }
 
 function Get-DatabaseMode {
@@ -149,9 +168,9 @@ $verify.Add_Click({$verify.Enabled=$false;$start.Enabled=$false;$status.Text="V�
     {npx prisma migrate deploy},
     {npm run prisma:seed},
     {npm run cardmarket:ensure-current},
-    {npm test},
-    {npm run lint},
-    {npm run build}
+    {Invoke-ResponsiveNpm @("test","--","--reporter=dot") "Tests automatiques (environ 30 à 60 secondes)…"},
+    {Invoke-ResponsiveNpm @("run","lint") "Contrôle de la qualité du code…"},
+    {Invoke-ResponsiveNpm @("run","build") "Préparation de la version locale (cela peut prendre deux minutes)…"}
   );$ok=$true;for($i=0;$i -lt $steps.Count;$i++){if(!(Invoke-Check $i $steps[$i])){$ok=$false;break}}
   if($ok){$status.Text="Tout est valide. PokéDeal peut démarrer.";$start.Enabled=$true;$start.BackColor=[Drawing.Color]::FromArgb(59,130,246);$start.ForeColor=[Drawing.Color]::White;Write-LauncherLog "Prévol entièrement validé." "OK"}else{$verify.Enabled=$true}
 })

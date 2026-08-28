@@ -244,7 +244,8 @@ function ActivityPanel({ activities }: { activities: Activity[] }) {
 }
 
 function CreateBinder({ close, created }: { close: () => void; created: (id: string, setId: string | null) => Promise<void> }) {
-  const [type, setType] = useState<BinderType>("MASTER_CARDS");
+  const [step, setStep] = useState(1);
+  const [type, setType] = useState<BinderType | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [blocks, setBlocks] = useState<BlockOption[]>([]);
@@ -260,21 +261,28 @@ function CreateBinder({ close, created }: { close: () => void; created: (id: str
   async function chooseBlock(id: string) {
     setBlockId(id); setSetId(""); setBusy(true);
     const response = await fetch(`/api/collections/blocks?series=${encodeURIComponent(id)}`);
-    const data = await response.json(); setSets(data.sets ?? []); setBusy(false);
+    const data = await response.json(); setSets(data.sets ?? []); setBusy(false); setStep(3);
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true);
+    if (!type) return;
     const response = await fetch("/api/collections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, name, description, setId }) });
     setBusy(false); if (!response.ok) return;
     const binder = await response.json() as { id: string }; await created(binder.id, needsSet ? setId : null);
   }
-  return <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/80 p-0 backdrop-blur-xl md:place-items-center md:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-    <form onSubmit={submit} className="modal-orbit max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#0b111c] p-6 shadow-2xl md:rounded-[2.25rem] md:p-9">
-      <div className="flex justify-between"><div><p className="eyebrow">Nouvel univers</p><h2 className="mt-2 font-display text-3xl font-bold">Que veux-tu collectionner ?</h2></div><button type="button" className="h-10 w-10 rounded-full bg-slate-800 text-slate-400" onClick={close}>×</button></div>
-      <div className="mt-7 grid gap-3 sm:grid-cols-3">{(["GLOBAL", "MASTER_CARDS", "MASTER_ITEMS"] as BinderType[]).map((key) => <button type="button" key={key} onClick={() => { setType(key); setBlockId(""); setSetId(""); setSets([]); }} className={`type-choice ${type === key ? "active" : ""}`}><span className="text-2xl">{TYPE_META[key].icon}</span><strong className="mt-3 block">{TYPE_META[key].label}</strong><small className="mt-1 block text-slate-500">{TYPE_META[key].kicker}</small></button>)}</div>
-      {needsSet && <div className="mt-7"><label className="eyebrow">1 · Choisir le bloc</label><div className="binder-choice-grid mt-4">{blocks.map((block) => <button type="button" key={block.id} onClick={() => void chooseBlock(block.id)} className={`binder-catalog-choice ${blockId === block.id ? "active" : ""}`}><span className="binder-choice-image">{block.logo ? <img src={block.logo} alt="" /> : "PK"}</span><strong>{block.name}</strong><small>{block.setCount} série(s) · {block.releaseDate ? new Date(block.releaseDate).getFullYear() : "—"}</small></button>)}</div>{blockId && <><label className="eyebrow mt-7 block">2 · Choisir la série</label><div className="binder-choice-grid mt-4">{sets.map((set) => <button type="button" key={set.id} onClick={() => setSetId(set.id)} className={`binder-catalog-choice ${setId === set.id ? "active" : ""}`}><span className="binder-choice-image">{set.logo ? <img src={set.logo} alt="" /> : "◇"}</span><strong>{set.name}</strong><small>{set.total} cartes · {set.releaseDate ? new Date(set.releaseDate).getFullYear() : "—"}</small></button>)}</div></>}</div>}
-      <div className="mt-7 grid gap-4 md:grid-cols-2"><label><span className="eyebrow">Nom personnalisé</span><input className="input mt-3 h-12 w-full" value={name} onChange={(event) => setName(event.target.value)} placeholder="Optionnel" /></label><label><span className="eyebrow">Description</span><input className="input mt-3 h-12 w-full" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Mon objectif, mon histoire…" /></label></div>
-      <button disabled={busy || (needsSet && !setId)} className="button-primary mt-8 h-12 w-full">{busy ? "Création…" : "Créer mon espace de collection"}</button>
+  const titles = ["", "Que veux-tu collectionner ?", "Choisis ton bloc Pokémon", "Choisis ta série", "Personnalise ton classeur"];
+  const displayedStep = needsSet ? step : step === 1 ? 1 : 2;
+  function back() { if (step === 4 && needsSet) setStep(3); else if (step === 3) setStep(2); else setStep(1); }
+  return <div className="binder-wizard-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
+    <form onSubmit={submit} className="binder-wizard modal-orbit">
+      <header className="binder-wizard-header"><button type="button" className="circle-action" onClick={step === 1 ? close : back}>{step === 1 ? "×" : "←"}</button><div><p className="eyebrow">Nouvel univers · étape {displayedStep}/{needsSet ? 4 : 2}</p><h2>{titles[step]}</h2></div><button type="button" className="circle-action" onClick={close}>×</button></header>
+      <div className="binder-wizard-body">
+        {step === 1 && <div className="binder-type-screen">{(["GLOBAL", "MASTER_CARDS", "MASTER_ITEMS"] as BinderType[]).map((key) => <button type="button" key={key} onClick={() => { setType(key); setBlockId(""); setSetId(""); setSets([]); setStep(key === "GLOBAL" ? 4 : 2); }} className="type-choice"><span className="text-2xl">{TYPE_META[key].icon}</span><strong>{TYPE_META[key].label}</strong><small>{TYPE_META[key].kicker}</small></button>)}</div>}
+        {step === 2 && <div className="binder-choice-grid">{blocks.map((block) => <button type="button" key={block.id} onClick={() => void chooseBlock(block.id)} className={`binder-catalog-choice ${blockId === block.id ? "active" : ""}`}><span className="binder-choice-image">{block.logo ? <img src={block.logo} alt="" /> : <img src="/icon.svg" alt="PokéDeal" />}</span><strong>{block.name}</strong><small>{block.setCount} série(s) · {block.releaseDate ? new Date(block.releaseDate).getFullYear() : "—"}</small></button>)}</div>}
+        {step === 3 && <div className="binder-choice-grid">{sets.map((set) => <button type="button" key={set.id} onClick={() => { setSetId(set.id); setStep(4); }} className={`binder-catalog-choice ${setId === set.id ? "active" : ""}`}><span className="binder-choice-image">{set.logo ? <img src={set.logo} alt="" /> : <img src="/icon.svg" alt="PokéDeal" />}</span><strong>{set.name}</strong><small>{set.total} cartes · {set.releaseDate ? new Date(set.releaseDate).getFullYear() : "—"}</small></button>)}</div>}
+        {step === 4 && <div className="binder-details-screen"><div className="pokeball-mark"><span /></div><p>{type ? TYPE_META[type].label : "Nouveau classeur"}</p><label><span>Nom personnalisé</span><input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex. Mon master set 151" /></label><label><span>Description</span><textarea className="input" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Mon objectif, mon histoire…" /></label></div>}
+      </div>
+      {step === 4 && <footer className="binder-wizard-footer"><button type="button" className="neu-button" onClick={back}>Retour</button><button disabled={busy || !type || (needsSet && !setId)} className="button-primary">{busy ? "Création…" : "Créer mon espace"}</button></footer>}
     </form>
   </div>;
 }
