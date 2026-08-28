@@ -27,16 +27,18 @@ classer puis suivre la valeur.
 
 1. Remplacer la clé administrateur unique par une authentification multi-utilisateur
    (passkey ou email magique) et isoler toutes les données par `userId`.
-2. Sauvegarde/export CSV et restauration complète de la collection.
-3. Journal d'audit des ajouts, retraits et changements de valeur.
+2. ~~Sauvegarde/export CSV et restauration complète de la collection.~~ Livré.
+3. ~~Journal d'audit des ajouts, retraits et changements de valeur.~~ Livré.
 
 ### P1 — vitesse de saisie
 
 1. Scan photo/OCR d'une carte et scan d'une page entière de classeur.
 2. Ajout en masse, import Collectr/TCG Collector et gestion des doublons.
-3. Gestion complète des variantes : normale, reverse, holo, première édition,
-   langue, gradation et numéro de certification.
-4. Plan physique du classeur avec format 3×3/4×3 et emplacement exact.
+3. ~~Gestion des variantes, langue, gradation et numéro de certification.~~
+   Livré dans la fiche de collection ; la cotation spécifique par variante reste
+   à enrichir lorsque la source la distingue.
+4. Plan physique visuel du classeur avec format 3×3/4×3. L'emplacement exact
+   page/ligne/colonne est déjà livré dans chaque fiche.
 
 ### P1 — portefeuille
 

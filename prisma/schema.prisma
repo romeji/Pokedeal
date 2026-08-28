@@ -316,6 +316,7 @@ model CollectorBinder {
   targetCount     Int?
   entries         CollectionEntry[]
   valueSnapshots  CollectionValueSnapshot[]
+  activities      CollectionActivity[]
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
 
@@ -341,12 +342,30 @@ model CollectionEntry {
   purchasePrice Decimal?
   manualValue   Decimal?
   notes         String?
+  grader        String?
+  grade         String?
+  certification String?
+  page          Int?
+  row           Int?
+  column        Int?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
   @@unique([binderId, externalId, variant, condition])
   @@index([binderId, kind])
   @@index([productId])
+}
+
+model CollectionActivity {
+  id        String          @id @default(cuid())
+  binderId  String
+  binder    CollectorBinder @relation(fields: [binderId], references: [id], onDelete: Cascade)
+  action    String
+  entryName String?
+  details   Json?
+  createdAt DateTime        @default(now())
+
+  @@index([binderId, createdAt])
 }
 
 model CollectionValueSnapshot {

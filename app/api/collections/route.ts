@@ -2,6 +2,7 @@ import { BinderType, ProductKind } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/admin/auth";
 import { entryUnitValue } from "@/lib/collections/valuation";
+import { recordCollectionActivity } from "@/lib/collections/activity";
 import { prisma } from "@/lib/database/prisma";
 import { assetLogo, getSet } from "@/lib/tcgdex/client";
 
@@ -104,6 +105,7 @@ export async function POST(request: Request) {
       accentColor: /^#[0-9a-f]{6}$/i.test(body.accentColor ?? "") ? body.accentColor! : "#38bdf8",
     },
   });
+  await recordCollectionActivity(binder.id, "BINDER_CREATED", binder.name, { type: binder.type });
   return NextResponse.json(binder, { status: 201 });
 }
 

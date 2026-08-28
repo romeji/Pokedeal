@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type BinderType = "GLOBAL" | "CUSTOM" | "MASTER_CARDS" | "MASTER_ITEMS";
 type Binder = {
@@ -17,11 +17,15 @@ type Target = {
 };
 type Entry = Target & {
   externalId: string; variant: string; condition: string; quantity: number;
-  purchasePrice: number | null; unitValue: number; updatedAt: string;
+  purchasePrice: number | null; manualValue: number | null; unitValue: number; updatedAt: string;
+  language: string; notes: string | null; grader: string | null; grade: string | null;
+  certification: string | null; page: number | null; row: number | null; column: number | null;
 };
+type Activity = { id: string; action: string; entryName: string | null; details: unknown; createdAt: string };
 type BinderDetail = {
   binder: Pick<Binder, "id" | "name" | "description" | "type" | "setName" | "coverImageUrl" | "accentColor" | "target">;
   entries: Entry[]; targets: Target[]; value: number; history: Array<{ value: number; recordedAt: string }>;
+  activities: Activity[];
 };
 type SearchResult = { id: string; name: string; localId?: string; imageUrl?: string | null; kind?: string; price?: number };
 
@@ -41,6 +45,7 @@ export function CollectionStudio() {
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const restoreInput = useRef<HTMLInputElement>(null);
 
   async function loadBinders(preferredId?: string) {
     const response = await fetch("/api/collections", { cache: "no-store" });
@@ -90,6 +95,25 @@ export function CollectionStudio() {
     await Promise.all([loadBinders(selectedId), loadDetail(selectedId)]);
   }
 
+  function downloadBackup(format: "json" | "csv") {
+    window.location.assign(`/api/collections/backup${format === "csv" ? "?format=csv" : ""}`);
+  }
+
+  async function restoreBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch("/api/collections/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: await file.text() });
+      const result = await response.json() as { restoredBinders?: number; restoredEntries?: number; error?: string };
+      if (!response.ok) throw new Error(result.error || "Restauration impossible");
+      setMessage(`${result.restoredBinders} classeur(s) et ${result.restoredEntries} objet(s) restaurés.`);
+      await loadBinders();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Restauration impossible"); }
+    finally { setBusy(false); }
+  }
+
   if (authenticated === null) return <CollectionSkeleton />;
   if (!authenticated) return <CollectionLogin token={token} setToken={setToken} login={login} busy={busy} message={message} />;
 
@@ -109,8 +133,15 @@ export function CollectionStudio() {
             Classeurs libres, master sets cartes ou objets scellés. Chaque acquisition fait évoluer ton portefeuille avec la cotation Cardmarket.
           </p>
         </div>
-        <button className="button-primary halo-button h-12 px-6" onClick={() => setShowCreate(true)}>＋ Créer un classeur</button>
+        <div className="flex flex-wrap gap-2">
+          <button className="button-secondary h-12 px-4" onClick={() => downloadBackup("csv")}>↓ CSV</button>
+          <button className="button-secondary h-12 px-4" onClick={() => downloadBackup("json")}>↓ Sauvegarde</button>
+          <button className="button-secondary h-12 px-4" onClick={() => restoreInput.current?.click()}>↑ Restaurer</button>
+          <input ref={restoreInput} type="file" accept="application/json,.json" className="hidden" onChange={restoreBackup} />
+          <button className="button-primary halo-button h-12 px-6" onClick={() => setShowCreate(true)}>＋ Créer un classeur</button>
+        </div>
       </header>
+      {message && <p className="relative z-10 mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-100">{message}</p>}
 
       <section className="relative z-10 mt-8 grid gap-3 sm:grid-cols-3">
         <HeroMetric label="Valeur du portefeuille" value={euro(portfolioValue)} detail="Cotation actuelle" tone="emerald" />
@@ -135,11 +166,12 @@ export function CollectionStudio() {
 }
 
 function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy: boolean; refresh: () => Promise<void> }) {
-  const [tab, setTab] = useState<"collection" | "missing" | "portfolio">("collection");
+  const [tab, setTab] = useState<"collection" | "missing" | "portfolio" | "activity">("collection");
   const [query, setQuery] = useState("");
   const [searchKind, setSearchKind] = useState<"CARD" | "ITEM">("CARD");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Entry | null>(null);
   const ownedIds = useMemo(() => new Set(detail.entries.map((entry) => entry.externalId)), [detail.entries]);
   const isMaster = detail.binder.type === "MASTER_CARDS" || detail.binder.type === "MASTER_ITEMS";
   const visibleTargets = detail.targets.filter((target) => tab !== "missing" || !target.owned);
@@ -188,13 +220,14 @@ function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy
           <Tab active={tab === "collection"} onClick={() => setTab("collection")}>Collection <b>{detail.entries.length}</b></Tab>
           {isMaster && <Tab active={tab === "missing"} onClick={() => setTab("missing")}>À trouver <b>{detail.targets.filter((target) => !target.owned).length}</b></Tab>}
           <Tab active={tab === "portfolio"} onClick={() => setTab("portfolio")}>Portefeuille</Tab>
+          <Tab active={tab === "activity"} onClick={() => setTab("activity")}>Activité <b>{detail.activities.length}</b></Tab>
         </nav>
       </div>
 
       <div className="p-5 md:p-8">
-        {tab === "portfolio" ? <PortfolioPanel detail={detail} /> : isMaster ? (
+        {tab === "portfolio" ? <PortfolioPanel detail={detail} /> : tab === "activity" ? <ActivityPanel activities={detail.activities} /> : isMaster ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
-            {visibleTargets.map((target) => <CollectibleTile key={target.id} target={target} working={workingId === target.id || busy} onToggle={() => toggle(target, target.owned)} />)}
+            {visibleTargets.map((target) => { const entry = detail.entries.find((item) => item.externalId === target.id || item.externalId === `cardmarket:${target.id}`); return <CollectibleTile key={target.id} target={target} working={workingId === target.id || busy} onToggle={() => toggle(target, target.owned)} onEdit={entry ? () => setEditing(entry) : undefined} />; })}
           </div>
         ) : (
           <>
@@ -204,23 +237,46 @@ function BinderWorkspace({ detail, busy, refresh }: { detail: BinderDetail; busy
             </div>
             {results.length > 0 && <div className="mb-10"><p className="eyebrow mb-4">Résultats</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-7">{results.map((result) => <CollectibleTile key={result.id} target={{ ...result, kind: searchKind, owned: ownedIds.has(searchKind === "ITEM" ? `cardmarket:${result.id}` : result.id), number: result.localId }} working={workingId === result.id} onToggle={() => toggle({ ...result, kind: searchKind, owned: false }, ownedIds.has(searchKind === "ITEM" ? `cardmarket:${result.id}` : result.id))} />)}</div></div>}
             <p className="eyebrow mb-4">Dans ce classeur</p>
-            {detail.entries.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-7">{detail.entries.map((entry) => <CollectibleTile key={entry.id} target={{ ...entry, id: entry.externalId, owned: true, price: entry.unitValue }} working={workingId === entry.externalId} onToggle={() => toggle({ ...entry, id: entry.externalId }, true, entry.id)} />)}</div> : <div className="rounded-3xl border border-dashed border-slate-700/50 p-14 text-center text-slate-500">Recherche une carte ou un item pour commencer ce classeur.</div>}
+            {detail.entries.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-7">{detail.entries.map((entry) => <CollectibleTile key={entry.id} target={{ ...entry, id: entry.externalId, owned: true, price: entry.unitValue }} working={workingId === entry.externalId} onToggle={() => toggle({ ...entry, id: entry.externalId }, true, entry.id)} onEdit={() => setEditing(entry)} />)}</div> : <div className="rounded-3xl border border-dashed border-slate-700/50 p-14 text-center text-slate-500">Recherche une carte ou un item pour commencer ce classeur.</div>}
           </>
         )}
       </div>
+      {editing && <EntryEditor binderId={detail.binder.id} entry={editing} close={() => setEditing(null)} saved={async () => { setEditing(null); await refresh(); }} />}
     </section>
   );
 }
 
-function CollectibleTile({ target, working, onToggle }: { target: Target; working: boolean; onToggle: () => void }) {
+function CollectibleTile({ target, working, onToggle, onEdit }: { target: Target; working: boolean; onToggle: () => void; onEdit?: () => void }) {
   return <article className={`collectible-tile group ${target.owned ? "is-owned" : "is-missing"}`}>
     <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-900">
       {target.imageUrl ? <img src={target.imageUrl} alt={target.name} loading="lazy" className="h-full w-full object-contain transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_50%_25%,rgba(56,189,248,.2),transparent_55%)] text-4xl">{target.kind === "ITEM" ? "⬡" : "◇"}</div>}
       {target.owned && <span className="absolute left-2 top-2 rounded-full bg-emerald-400 px-2 py-1 text-[10px] font-bold text-emerald-950">✓ ACQUIS</span>}
+      {onEdit && <button type="button" onClick={onEdit} className="absolute bottom-2 left-2 rounded-full border border-white/15 bg-slate-950/80 px-3 py-2 text-[10px] font-bold text-slate-100 backdrop-blur-xl">GÉRER</button>}
       <button disabled={working} onClick={onToggle} className={`absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full border backdrop-blur-xl ${target.owned ? "border-rose-300/30 bg-rose-950/80 text-rose-200" : "border-cyan-300/30 bg-slate-950/80 text-cyan-200"}`}>{working ? "…" : target.owned ? "−" : "+"}</button>
     </div>
     <div className="px-1 pb-1 pt-3"><h3 className="line-clamp-2 min-h-10 text-sm font-semibold leading-5">{target.name}</h3><div className="mt-2 flex items-center justify-between text-[11px] text-slate-500"><span>{target.number ? `#${target.number}` : formatKind(target.productKind)}</span>{typeof target.price === "number" && target.price > 0 && <strong className="text-emerald-300">{euro(target.price)}</strong>}</div></div>
   </article>;
+}
+
+function EntryEditor({ binderId, entry, close, saved }: { binderId: string; entry: Entry; close: () => void; saved: () => Promise<void> }) {
+  const [form, setForm] = useState({ quantity: String(entry.quantity), purchasePrice: entry.purchasePrice?.toString() ?? "", manualValue: entry.manualValue?.toString() ?? "", variant: entry.variant, language: entry.language, condition: entry.condition, notes: entry.notes ?? "", grader: entry.grader ?? "", grade: entry.grade ?? "", certification: entry.certification ?? "", page: entry.page?.toString() ?? "", row: entry.row?.toString() ?? "", column: entry.column?.toString() ?? "" });
+  const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const field = (name: keyof typeof form) => ({ value: form[name], onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((current) => ({ ...current, [name]: event.target.value })) });
+  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); setError(""); const response = await fetch(`/api/collections/${binderId}/entries`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entryId: entry.id, ...form }) }); setBusy(false); if (!response.ok) { const data = await response.json() as { error?: string }; setError(data.error || "Enregistrement impossible"); return; } await saved(); }
+  return <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/80 backdrop-blur-xl md:place-items-center md:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}><form onSubmit={submit} className="modal-orbit max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#0b111c] p-6 md:rounded-[2.25rem] md:p-8">
+    <div className="flex gap-5"><div className="h-28 w-24 shrink-0 overflow-hidden rounded-2xl bg-slate-900">{entry.imageUrl && <img src={entry.imageUrl} alt="" className="h-full w-full object-contain" />}</div><div className="min-w-0 flex-1"><p className="eyebrow">Fiche de collection</p><h3 className="mt-2 truncate font-display text-2xl font-bold">{entry.name}</h3><p className="mt-2 text-sm text-slate-500">Cotation actuelle · {euro(entry.unitValue)}</p></div><button type="button" onClick={close} className="h-10 w-10 rounded-full bg-slate-800">×</button></div>
+    <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><FormField label="Quantité"><input type="number" min="1" className="input h-11 w-full" {...field("quantity")} /></FormField><FormField label="Prix d’achat / unité"><input type="number" min="0" step="0.01" className="input h-11 w-full" {...field("purchasePrice")} /></FormField><FormField label="Valeur manuelle"><input type="number" min="0" step="0.01" className="input h-11 w-full" placeholder="Oracle sinon" {...field("manualValue")} /></FormField><FormField label="Variante"><select className="input h-11 w-full" {...field("variant")}><option value="normal">Normale</option><option value="reverse">Reverse</option><option value="holo">Holo</option><option value="first-edition">1re édition</option><option value="sealed">Scellé</option></select></FormField><FormField label="Langue"><select className="input h-11 w-full" {...field("language")}><option value="fr">Français</option><option value="en">Anglais</option><option value="jp">Japonais</option><option value="de">Allemand</option><option value="it">Italien</option></select></FormField><FormField label="État"><select className="input h-11 w-full" {...field("condition")}><option>NM</option><option>EX</option><option>GD</option><option>LP</option><option>PL</option><option>PO</option></select></FormField></div>
+    <p className="eyebrow mt-7">Gradation</p><div className="mt-3 grid gap-4 sm:grid-cols-3"><FormField label="Organisme"><input className="input h-11 w-full" placeholder="PSA, PCA, BGS…" {...field("grader")} /></FormField><FormField label="Note"><input className="input h-11 w-full" placeholder="10, 9.5…" {...field("grade")} /></FormField><FormField label="Certification"><input className="input h-11 w-full" {...field("certification")} /></FormField></div>
+    <p className="eyebrow mt-7">Emplacement physique</p><div className="mt-3 grid grid-cols-3 gap-4"><FormField label="Page"><input type="number" min="1" className="input h-11 w-full" {...field("page")} /></FormField><FormField label="Ligne"><input type="number" min="1" className="input h-11 w-full" {...field("row")} /></FormField><FormField label="Colonne"><input type="number" min="1" className="input h-11 w-full" {...field("column")} /></FormField></div>
+    <FormField label="Notes"><textarea className="input mt-3 min-h-24 w-full py-3" {...field("notes")} /></FormField>{error && <p className="mt-3 text-sm text-rose-300">{error}</p>}<button disabled={busy} className="button-primary mt-6 h-12 w-full">{busy ? "Enregistrement…" : "Enregistrer la fiche"}</button>
+  </form></div>;
+}
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) { return <label><span className="mb-2 block text-xs text-slate-500">{label}</span>{children}</label>; }
+
+function ActivityPanel({ activities }: { activities: Activity[] }) {
+  const labels: Record<string, string> = { BINDER_CREATED: "Classeur créé", ENTRY_ADDED: "Ajouté à la collection", ENTRY_UPDATED: "Fiche mise à jour", ENTRY_REMOVED: "Retiré de la collection", BACKUP_RESTORED: "Sauvegarde restaurée" };
+  return <div className="mx-auto max-w-3xl"><div className="mb-6"><p className="eyebrow">Journal sécurisé</p><h3 className="mt-2 font-display text-2xl font-bold">Histoire du classeur</h3></div>{activities.length ? <div className="space-y-3">{activities.map((activity) => <article key={activity.id} className="flex items-center gap-4 rounded-2xl border border-white/5 bg-slate-950/50 p-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-400/10 text-cyan-200">✦</span><div className="min-w-0 flex-1"><strong className="block text-sm">{labels[activity.action] || activity.action}</strong><span className="block truncate text-sm text-slate-500">{activity.entryName || "Collection"}</span></div><time className="text-right text-xs text-slate-600">{new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(activity.createdAt))}</time></article>)}</div> : <div className="rounded-3xl border border-dashed border-slate-700/50 p-12 text-center text-slate-500">Les prochains mouvements apparaîtront ici.</div>}</div>;
 }
 
 function CreateBinder({ close, created }: { close: () => void; created: (id: string) => Promise<void> }) {

@@ -27,6 +27,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         },
       },
       valueSnapshots: { orderBy: { recordedAt: "asc" }, take: 30 },
+      activities: { orderBy: { createdAt: "desc" }, take: 30 },
     },
   });
   if (!binder) return NextResponse.json({ error: "Classeur introuvable" }, { status: 404 });
@@ -79,8 +80,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
     condition: entry.condition,
     quantity: entry.quantity,
     purchasePrice: entry.purchasePrice === null ? null : Number(entry.purchasePrice),
+    manualValue: entry.manualValue === null ? null : Number(entry.manualValue),
     unitValue: entryUnitValue(entry),
     updatedAt: entry.updatedAt,
+    language: entry.language,
+    notes: entry.notes,
+    grader: entry.grader,
+    grade: entry.grade,
+    certification: entry.certification,
+    page: entry.page,
+    row: entry.row,
+    column: entry.column,
   }));
   return NextResponse.json({
     binder: {
@@ -97,5 +107,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
     targets,
     value: entries.reduce((sum, entry) => sum + entry.unitValue * entry.quantity, 0),
     history: binder.valueSnapshots.map((snapshot) => ({ value: Number(snapshot.value), recordedAt: snapshot.recordedAt })),
+    activities: binder.activities,
   });
 }

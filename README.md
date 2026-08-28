@@ -160,6 +160,10 @@ présentes. Les secrets doivent rester dans `.env`, jamais dans
 - `/collection` gère plusieurs classeurs : collection globale, classeur libre,
   master set cartes et master set items. Les checklists et visuels HD viennent
   de TCGdex ; les cotations sont reliées aux identifiants Cardmarket disponibles.
+- La Collection exporte un CSV, télécharge/restaure une sauvegarde JSON
+  versionnée et conserve un journal des mouvements. Chaque fiche accepte aussi
+  variante, langue, état, quantité, prix d'achat, valeur manuelle, grading,
+  certification, notes et emplacement physique.
 - `/library` conserve uniquement les opportunités à profit positif dont
   l'annonce n'est pas `SOLD`, `REMOVED` ou `EXPIRED`.
 - `/items` recherche le catalogue Cardmarket et ses derniers prix, affiche la
