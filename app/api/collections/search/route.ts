@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         id: product.id,
         name: product.name,
         kind: product.kind,
-        imageUrl: product.imageUrl,
+        imageUrl: product.imageUrl ?? `/api/products/${product.id}/image`,
         price: Number(price?.trendPrice ?? price?.avg7Price ?? price?.averagePrice ?? price?.lowPrice ?? 0),
       };
     }),

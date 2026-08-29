@@ -6,6 +6,7 @@ import Link from "next/link";
 
 type Snapshot = { date: string; probable: number; low: number | null; average: number | null };
 type ItemData = {
+  canEditImage: boolean;
   product: { id: string; cardmarketProductId: number; name: string; kind: string; setName?: string | null; imageUrl?: string | null };
   current: Snapshot | null;
   history: Snapshot[];
@@ -25,6 +26,7 @@ export function ItemDetail({ id }: { id: string }) {
   const [purchasePrice, setPurchasePrice] = useState("");
   const [sellEntry, setSellEntry] = useState("");
   const [salePrice, setSalePrice] = useState("");
+  const [manualImageUrl, setManualImageUrl] = useState("");
 
   async function refresh() {
     setBusy(true);
@@ -66,6 +68,14 @@ export function ItemDetail({ id }: { id: string }) {
     if (response.ok) { setSalePrice(""); await refresh(); }
   }
 
+  async function saveImage() {
+    if (!manualImageUrl.trim()) return;
+    const response = await fetch(`/api/items/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: manualImageUrl.trim() }) });
+    const body = await response.json();
+    setMessage(response.ok ? "Image enregistrée pour tous les écrans." : body.error || "Image inaccessible");
+    if (response.ok) { setManualImageUrl(""); await refresh(); }
+  }
+
   if (busy && !data) return <main className="app-page"><div className="loading-panel">Chargement de la cotation…</div></main>;
   if (!data) return <main className="app-page"><div className="neu-card p-8">{message}</div></main>;
   const current = data.current?.probable ?? data.markets.cardmarket;
@@ -80,6 +90,7 @@ export function ItemDetail({ id }: { id: string }) {
       <div className="min-w-0 flex-1"><p className="eyebrow">{data.product.kind.replaceAll("_", " ")} · {data.product.setName || "Catalogue Cardmarket"}</p><h1>{data.product.name}</h1><p className="item-live-price">{current === null ? "Prix indisponible" : euro(current)}</p><div className="mt-5 flex flex-wrap gap-3"><button className={`neu-button ${data.favorite ? "active" : ""}`} onClick={() => void toggleFavorite()}>{data.favorite ? "★ Dans ma wishlist" : "☆ Ajouter à ma wishlist"}</button><a className="button-primary" href={`https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(data.product.name)}`} target="_blank" rel="noreferrer">Voir sur Cardmarket ↗</a></div></div>
     </section>
     {message && <p className="status-message">{message}</p>}
+    {data.canEditImage && <section className="neu-card mt-4 p-4"><p className="eyebrow">Visuel administrateur</p><div className="transaction-form"><input className="neu-input" value={manualImageUrl} onChange={(event)=>setManualImageUrl(event.target.value)} placeholder="Coller l'adresse HTTPS de l'image Cardmarket"/><button className="neu-button" onClick={()=>void saveImage()}>Enregistrer l'image</button></div></section>}
 
     {ownedQuantity > 0 && <section className="neu-card owned-position"><div><p className="eyebrow">Ma position</p><h2>{ownedQuantity} exemplaire{ownedQuantity > 1 ? "s" : ""}</h2></div><div><span>Investi</span><strong>{euro(invested)}</strong></div><div><span>Valeur actuelle</span><strong>{euro(positionValue)}</strong></div><div><span>Plus-value latente</span><strong className={positionValue - invested >= 0 ? "gain" : "loss"}>{signedEuro(positionValue - invested)}</strong></div></section>}
 

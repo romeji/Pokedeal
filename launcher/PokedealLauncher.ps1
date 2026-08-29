@@ -85,17 +85,31 @@ function Invoke-ResponsiveNpm([string[]]$arguments, [string]$progressMessage) {
   $stderrPath = Join-Path $projectRoot ".pokedeal-preflight-error.log"
   $status.Text = $progressMessage
   Write-LauncherLog "$progressMessage La fenêtre reste utilisable pendant le contrôle."
-  $process = Start-Process -FilePath "npm.cmd" -ArgumentList $arguments -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
-  while (!$process.WaitForExit(250)) { [Windows.Forms.Application]::DoEvents() }
-  # WaitForExit(timeout) peut signaler la fin avant que PowerShell ait
-  # rafraîchi ExitCode et vidé les flux redirigés. Le second appel sans
-  # délai finalise l'objet Process et évite un code de sortie vide.
+  $quotedArguments = $arguments | ForEach-Object {
+    if ($_ -match '[\s"]') { '"{0}"' -f ($_ -replace '"', '\"') } else { $_ }
+  }
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = "cmd.exe"
+  $startInfo.Arguments = '/d /s /c "npm.cmd {0}"' -f ($quotedArguments -join ' ')
+  $startInfo.WorkingDirectory = $projectRoot
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  if (!$process.Start()) { throw "Impossible de démarrer npm." }
+  $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+  $stderrTask = $process.StandardError.ReadToEndAsync()
+  while (!$process.HasExited) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 100 }
   $process.WaitForExit()
-  $process.Refresh()
-  $exitCode = $process.ExitCode
-  $output = @()
-  if (Test-Path -LiteralPath $stdoutPath) { $output += Get-Content -LiteralPath $stdoutPath }
-  if (Test-Path -LiteralPath $stderrPath) { $output += Get-Content -LiteralPath $stderrPath | Where-Object { $_ -notmatch "CJS build of Vite's Node API is deprecated" } }
+  $stdout = $stdoutTask.Result
+  $stderr = $stderrTask.Result
+  $exitCode = [int]$process.ExitCode
+  [IO.File]::WriteAllText($stdoutPath, $stdout, [Text.Encoding]::UTF8)
+  [IO.File]::WriteAllText($stderrPath, $stderr, [Text.Encoding]::UTF8)
+  $output = @($stdout -split "`r?`n")
+  $output += @($stderr -split "`r?`n" | Where-Object { $_ -notmatch "CJS build of Vite's Node API is deprecated" })
   if ($output.Count) { Write-Output ($output -join [Environment]::NewLine) }
   if ($exitCode -ne 0) { throw "npm a retourné le code $exitCode. Ouvre les journaux pour le détail." }
   $global:LASTEXITCODE = 0

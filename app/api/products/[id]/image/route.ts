@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/database/prisma";
-import { assetImage, searchCardsDetailed } from "@/lib/tcgdex/client";
+import { resolveCardImage } from "@/lib/tcgdex/client";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,8 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!product) return NextResponse.redirect(new URL("/icon.svg", request.url));
   let imageUrl = product.imageUrl ?? product.productMatches[0]?.listing.images[0]?.url ?? null;
   if (!imageUrl && product.kind === "SINGLE") {
-    const cards = await searchCardsDetailed(product.name.replace(/\s*\[.*$/, ""), 12).catch(() => []);
-    imageUrl = assetImage(cards.find((card) => card.pricing?.cardmarket?.idProduct === product.cardmarketProductId)?.image);
+    imageUrl = await resolveCardImage(product.cardmarketProductId, product.name);
   }
   if (imageUrl && imageUrl !== product.imageUrl) await prisma.cardmarketProduct.update({ where: { id }, data: { imageUrl } }).catch(() => undefined);
   const response = NextResponse.redirect(imageUrl || new URL("/icon.svg", request.url));

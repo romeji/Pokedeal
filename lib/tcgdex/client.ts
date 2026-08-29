@@ -121,16 +121,43 @@ export async function searchCardsDetailed(query: string, limit = 30): Promise<Tc
   if (setMatch) {
     briefs = setMatch.cards;
   } else {
-    briefs = await searchCards(cardQuery, "fr");
+    // Conserver d'abord la ponctuation des noms comme "Lt. Surge's Pikachu".
+    // La normalisation précédente transformait l'apostrophe en espace et
+    // empêchait l'API de retrouver ces cartes.
+    briefs = await searchCards(query.trim(), "fr");
+    if (!briefs.length && cardQuery !== query.trim()) briefs = await searchCards(cardQuery, "fr");
     if (!briefs.length) {
       language = "en";
-      briefs = await searchCards(cardQuery, "en");
+      briefs = await searchCards(query.trim(), "en");
+      if (!briefs.length && cardQuery !== query.trim()) briefs = await searchCards(cardQuery, "en");
     }
   }
 
-  const selected = briefs.slice(0, Math.max(1, Math.min(limit, 40)));
+  const selected = briefs.slice(0, Math.max(1, Math.min(limit, 100)));
   return Promise.all(selected.map(async (brief) => {
     try { return await getCard(brief.id, language); }
     catch { return { ...brief, set: { id: "", name: "", cardCount: { total: 0, official: 0 } } }; }
   }));
+}
+
+/** Résout une image sans dépendre uniquement du mapping de prix TCGdex,
+ * incomplet sur certaines anciennes cartes. Les attaques Cardmarket entre
+ * crochets permettent alors de sélectionner une version unique. */
+export async function resolveCardImage(cardmarketProductId: number, cardmarketName: string) {
+  const baseName = cardmarketName.replace(/\s*\[.*$/, "").trim();
+  const cards = await searchCardsDetailed(baseName, 40).catch(() => []);
+  const exact = cards.find((card) => card.pricing?.cardmarket?.idProduct === cardmarketProductId);
+  if (exact?.image) return assetImage(exact.image);
+  const attacks = [...cardmarketName.matchAll(/\[([^\]]+)\]/g)]
+    .flatMap((match) => match[1]!.split("|"))
+    .map(normalizeSearch)
+    .filter(Boolean);
+  if (attacks.length) {
+    const attackMatches = cards.filter((card) => {
+      const cardAttacks = (card as TcgdexCard & { attacks?: Array<{ name?: string }> }).attacks?.map((attack) => normalizeSearch(attack.name ?? "")) ?? [];
+      return attacks.every((wanted) => cardAttacks.some((attack) => attack === wanted));
+    });
+    if (attackMatches.length === 1 && attackMatches[0]!.image) return assetImage(attackMatches[0]!.image);
+  }
+  return cards.length === 1 ? assetImage(cards[0]!.image) : null;
 }

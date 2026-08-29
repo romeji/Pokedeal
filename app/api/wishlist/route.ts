@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   });
   return NextResponse.json(rows.map((row) => {
     const price = row.product?.priceSnapshots[0];
-    return { id: row.id, externalId: row.externalId, kind: row.kind, name: row.label, imageUrl: row.imageUrl, setName: row.setName, maxPrice: row.maxPrice === null ? null : Number(row.maxPrice), price: Number(price?.trendPrice ?? price?.avg7Price ?? price?.averagePrice ?? price?.lowPrice ?? 0), createdAt: row.createdAt };
+    return { id: row.id, externalId: row.externalId, kind: row.kind, name: row.label, imageUrl: row.imageUrl ?? (row.productId ? `/api/products/${row.productId}/image` : null), setName: row.setName, maxPrice: row.maxPrice === null ? null : Number(row.maxPrice), price: Number(price?.trendPrice ?? price?.avg7Price ?? price?.averagePrice ?? price?.lowPrice ?? 0), createdAt: row.createdAt };
   }));
 }
 

@@ -67,19 +67,23 @@ export class ProductMatcher {
     const queryTokens = tokenize(item.label);
     const primaryLabel = (item.label.split(/\s+-\s+|\[/, 1)[0]?.trim() ?? item.label)
       .replace(/^pok[eé]mon(?:\s+tcg)?\s+/i, "")
+      .replace(/\s+\d+[a-z]?\s*\/\s*\d+.*$/i, "")
+      .replace(/\s*\([^)]*\)\s*$/, "")
       .trim();
 
     // Une carte existe dans de nombreuses impressions à des prix très différents.
     // Sans numéro + série, un nom seul n'est jamais assez sûr pour une alerte.
     if (item.productType === "CARD") {
-      if (!item.number || (!item.setCode && !item.setName)) return null;
+      const printedTotal = item.number?.match(/\/\s*(\d+)/)?.[1] ?? null;
+      if (!item.number || (!item.setCode && !item.setName && !printedTotal)) return null;
       const cards = await searchCardsDetailed(primaryLabel, 40);
       const wantedNumber = normalizeCardNumber(item.number);
       const wantedSet = normalize(item.setCode ?? item.setName ?? "");
       const exact = cards.find((card) => {
         if (normalizeCardNumber(card.localId) !== wantedNumber) return false;
+        if (!wantedSet && printedTotal && ![card.set.cardCount.official, card.set.cardCount.total].includes(Number(printedTotal))) return false;
         const cardSet = normalize(`${card.set.id} ${card.set.name}`);
-        return wantedSet.split(" ").filter((token) => token.length > 1).every((token) => cardSet.includes(token));
+        return !wantedSet || wantedSet.split(" ").filter((token) => token.length > 1 && !["pokemon", "tcg", "set", "serie"].includes(token)).every((token) => cardSet.includes(token));
       });
       const idProduct = exact?.pricing?.cardmarket?.idProduct;
       if (!idProduct) return null;

@@ -59,6 +59,10 @@ export class ListingAnalyzer {
           continue;
         }
 
+        // Une annonce montre souvent le même produit sous plusieurs angles.
+        // Sans déduplication, chaque photo créait un ListingItem et le scorer
+        // classait à tort l'annonce comme un lot multi-produits.
+        const seenItems = new Set<string>();
         for (const image of listing.images) {
           const items = await this.analyzeImageCached(image.id, image.url, {
             title: listing.title,
@@ -66,6 +70,9 @@ export class ListingAnalyzer {
           });
 
           for (const item of items) {
+            const fingerprint = itemFingerprint(item);
+            if (seenItems.has(fingerprint)) continue;
+            seenItems.add(fingerprint);
             const listingItem = await prisma.listingItem.create({
               data: {
                 listingId: listing.id,
@@ -145,6 +152,12 @@ export class ListingAnalyzer {
     });
     return items;
   }
+}
+
+function itemFingerprint(item: IdentifiedItem) {
+  return [item.productType, item.label, item.setCode, item.setName, item.number]
+    .map((value) => (value ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, ""))
+    .join("|");
 }
 
 // Exécution directe : npm run worker:listing-analyzer

@@ -90,7 +90,7 @@ export async function GET(request: Request) {
         setCode: product.set?.code ?? null,
         imageUrl:
           assetImage(tcgdex?.image) ?? product.imageUrl ?? product.productMatches[0]?.listing.images[0]?.url ??
-          (sealedIntent ? assetLogo(resolvedSet?.fr.logo) : null),
+          (sealedIntent ? assetLogo(resolvedSet?.fr.logo) : null) ?? `/api/products/${product.id}/image`,
         price: price
           ? {
               probable: Number(

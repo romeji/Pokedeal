@@ -56,6 +56,36 @@ export async function GET(request: Request) {
       take: pageSize,
     }),
   ]);
+  if (total === 0 && scope !== "treated" && !decision) {
+    const candidates = await prisma.listing.findMany({
+      where: {
+        status: { in: ["NEW", "ANALYZED", "REVIEW_REQUIRED", "NO_MATCH"] },
+        images: { some: {} },
+        ...(country ? { sellerCountry: { equals: country, mode: "insensitive" as const } } : {}),
+        ...(condition ? { itemCondition: { contains: condition, mode: "insensitive" as const } } : {}),
+        ...(keyword ? { OR: [
+          { title: { contains: keyword, mode: "insensitive" as const } },
+          { description: { contains: keyword, mode: "insensitive" as const } },
+        ] } : {}),
+      },
+      include: { images: { take: 1 }, matches: { orderBy: { confidence: "desc" }, take: 1, include: { product: { select: { id: true, name: true } } } } },
+      orderBy: { lastSeenAt: "desc" }, take: pageSize,
+    });
+    return NextResponse.json({
+      page: 1, pageSize, total: candidates.length, pages: 1,
+      rows: candidates.map((listing) => ({
+        id: listing.id, candidate: true, title: listing.title, description: listing.description,
+        url: listing.url, imageUrl: listing.images[0]?.url ?? null, price: Number(listing.price),
+        marketValue: null, profit: null, roi: null, score: null, category: null,
+        confidence: null, risk: null, listingStatus: listing.status,
+        country: listing.sellerCountry, condition: listing.itemCondition,
+        publishedAt: listing.publishedAt ?? listing.firstSeenAt, decision: "ANALYZING",
+        productId: listing.matches[0]?.product.id ?? null,
+        productName: listing.matches[0]?.product.name ?? null,
+        matchConfidence: listing.matches[0]?.confidence ?? null,
+      })),
+    });
+  }
   return NextResponse.json({
     page, pageSize, total, pages: Math.max(1, Math.ceil(total / pageSize)),
     rows: rows.map((row) => ({

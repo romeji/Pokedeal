@@ -3,6 +3,7 @@ import { PriceEngine } from "@/lib/pricing/PriceEngine";
 import { OpportunityEngine, type MatchedItem } from "@/lib/scoring/OpportunityEngine";
 import { scoreOpportunity } from "@/lib/scoring/OpportunityScorer";
 import { runJob } from "@/lib/workers/runJob";
+import { ProductMatcher } from "@/lib/matching/ProductMatcher";
 
 /**
  * Phase 5 — pour chaque Listing en statut ANALYZED avec au moins un
@@ -17,6 +18,46 @@ export class OpportunityScoringWorker {
   ) {}
 
   async runOnce(limit = 20): Promise<{ scored: number; skipped: number; errors: number }> {
+    const matcher = new ProductMatcher();
+    const legacyNoMatches = await prisma.listing.findMany({
+      where: { status: "NO_MATCH", items: { some: { label: { contains: "/" } } } },
+      include: { items: true }, orderBy: { lastSeenAt: "desc" }, take: limit,
+    });
+    for (const listing of legacyNoMatches) {
+      for (const item of listing.items) {
+        const number = item.label.match(/\d+[a-z]?\s*\/\s*\d+/i)?.[0]?.replace(/\s/g, "") ?? null;
+        const setName = item.label.match(/\((?:Pok[eé]mon\s*)?([^)]*)\)\s*$/i)?.[1]?.trim() ?? null;
+        if (!number) continue;
+        const match = await matcher.match({
+          label: item.label, productType: "CARD", setCode: null, setName, number,
+          language: null, rarity: null, edition: null, condition: null,
+          confidenceScore: item.confidenceScore ?? .75,
+          imageQualityScore: item.imageQualityScore ?? .5,
+          counterfeitRiskScore: item.counterfeitRiskScore ?? .5,
+          needsManualReview: item.needsManualReview,
+        }).catch(() => null);
+        if (!match || match.confidence < .82) continue;
+        await prisma.productMatch.upsert({
+          where: { listingId_productId: { listingId: listing.id, productId: match.cardmarketProductId } },
+          create: { listingId: listing.id, productId: match.cardmarketProductId, confidence: match.confidence },
+          update: { confidence: match.confidence },
+        });
+        await prisma.listing.update({ where: { id: listing.id }, data: { status: "ANALYZED", filterReason: null } });
+        break;
+      }
+    }
+    // Répare progressivement les annonces bloquées par l'ancien bug qui
+    // comptait le même produit une fois par photo.
+    const legacyDuplicates = await prisma.listing.findMany({
+      where: { status: "REVIEW_REQUIRED", filterReason: { startsWith: "Lot multi-produits" } },
+      include: { items: true },
+      take: limit,
+    });
+    for (const listing of legacyDuplicates) {
+      if (uniqueListingItems(listing.items).length === 1) {
+        await prisma.listing.update({ where: { id: listing.id }, data: { status: "ANALYZED", filterReason: null } });
+      }
+    }
     const listings = await prisma.listing.findMany({
       where: { status: "ANALYZED" },
       include: { matches: { orderBy: { confidence: "desc" } }, items: true },
@@ -29,6 +70,7 @@ export class OpportunityScoringWorker {
 
     for (const listing of listings) {
       try {
+        const distinctItems = uniqueListingItems(listing.items);
         if (listing.matches.length === 0) {
           await prisma.listing.update({
             where: { id: listing.id },
@@ -38,13 +80,13 @@ export class OpportunityScoringWorker {
           continue;
         }
 
-        if (listing.items.some((item) => item.needsManualReview || (item.confidenceScore ?? 0) < 0.75)) {
+        if (distinctItems.some((item) => item.needsManualReview || (item.confidenceScore ?? 0) < 0.75)) {
           await prisma.listing.update({ where: { id: listing.id }, data: { status: "REVIEW_REQUIRED", filterReason: "Identification visuelle à confirmer manuellement" } });
           skipped++;
           continue;
         }
 
-        if (listing.items.length > 1) {
+        if (distinctItems.length > 1) {
           await prisma.listing.update({ where: { id: listing.id }, data: { status: "REVIEW_REQUIRED", filterReason: "Lot multi-produits : chaque élément doit être associé séparément" } });
           skipped++;
           continue;
@@ -85,9 +127,9 @@ export class OpportunityScoringWorker {
               ) / 10
             : 0;
 
-        const identificationConfidence = this.average(listing.items.map((i) => i.confidenceScore));
-        const imageQualityScore = this.average(listing.items.map((i) => i.imageQualityScore));
-        const counterfeitRiskScore = this.average(listing.items.map((i) => i.counterfeitRiskScore));
+        const identificationConfidence = this.average(distinctItems.map((i) => i.confidenceScore));
+        const imageQualityScore = this.average(distinctItems.map((i) => i.imageQualityScore));
+        const counterfeitRiskScore = this.average(distinctItems.map((i) => i.counterfeitRiskScore));
 
         // Fiabilité prix + tendance : basées sur le premier produit matché
         // (V1 — une agrégation multi-produits pour les lots serait plus
@@ -180,6 +222,16 @@ export class OpportunityScoringWorker {
     if (known.length === 0) return null;
     return known.reduce((s, v) => s + v, 0) / known.length;
   }
+}
+
+function uniqueListingItems<T extends { label: string; confidenceScore: number | null; imageQualityScore: number | null; counterfeitRiskScore: number | null; needsManualReview: boolean }>(items: T[]) {
+  const unique = new Map<string, T>();
+  for (const item of items) {
+    const key = item.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+    const current = unique.get(key);
+    if (!current || (item.confidenceScore ?? 0) > (current.confidenceScore ?? 0)) unique.set(key, item);
+  }
+  return [...unique.values()];
 }
 
 if (require.main === module) {
